@@ -73,6 +73,10 @@
     <div id="sourceStats"></div>
   </div>
   <div class="panel">
+    <div class="gt">🚶 走客记录</div>
+    <div id="walkStats"></div>
+  </div>
+  <div class="panel">
     <div class="gt">📅 近7天每日营业</div>
     <div id="weekList"></div>
   </div>
@@ -117,7 +121,7 @@ function renderRooms(rooms){
 function renderStats(records){
   records=records||[];
   const today=currentBizKey();
-  const todays=records.filter(r=>r.date===today && !r.isReturn);
+  const todays=records.filter(r=>r.date===today && !(r.isReturn||r.isWalk));
   const totalClocks=todays.reduce((s,r)=>s+(r.itemCount||1),0);
   const extraClocks=todays.reduce((s,r)=>s+(r.extraCount||0),0);
   const should=todays.reduce((s,r)=>s+(r.origTotal||r.total||0),0);
@@ -156,7 +160,7 @@ let viewRecords=[];
 function openPayChannels(){
   const today=currentBizKey();
   const cmap={现金:0,扫码:0,美团:0};
-  (viewRecords||[]).filter(r=>r.date===today && !r.isReturn).forEach(r=>{
+  (viewRecords||[]).filter(r=>r.date===today && !(r.isReturn||r.isWalk)).forEach(r=>{
     (r.pay||[]).forEach(p=>{
       const m=String(p).match(/^(.+?)¥(\d+)/);
       if(m){ const ch=m[1]; const amt=parseFloat(m[2]); if(cmap[ch]!==undefined) cmap[ch]+=amt; }
@@ -187,6 +191,13 @@ function renderRoomTimes(records,rooms){
               <div style="font-weight:600">↩️ 退钟 · ${techs}</div>
               <div style="color:#c62828">${r.startTime||'--'} 上 → ${r.endTime||'--'}（无提成）</div>
               <div style="color:#888">原因：${r.retReason||'--'}</div>
+            </div>`;
+          }
+          if(r.isWalk){
+            return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px;color:#9c27b0">
+              <div style="font-weight:600">🚶 走客 · 接待：${techs||'未填'}</div>
+              <div style="color:#9c27b0">${r.startTime||'--'}（未消费）</div>
+              <div style="color:#888">原因：${r.walkReason||'--'}${r.source?('｜'+r.source):''}</div>
             </div>`;
           }
           let itHtml=(r.items||[]).map((it,ix)=>{
@@ -221,7 +232,7 @@ function renderWeek(records){
   let html='';
   days.forEach(key=>{
     const todaysAll=records.filter(r=>r.date===key);
-    const todays=todaysAll.filter(r=>!r.isReturn);
+    const todays=todaysAll.filter(r=>!(r.isReturn||r.isWalk));
     const retCount=todaysAll.length-todays.length;
     const total=todays.reduce((s,r)=>s+(r.itemCount||1),0);
     const should=todays.reduce((s,r)=>s+(r.origTotal||r.total||0),0);
@@ -246,12 +257,13 @@ function toggleDay(safeKey){
 }
 function renderDayDetail(rows){
   if(!rows.length) return '<div style="color:#aaa">当日暂无记录</div>';
-  const norm=rows.filter(r=>!r.isReturn);
+  const norm=rows.filter(r=>!(r.isReturn||r.isWalk));
   const rets=rows.filter(r=>r.isReturn);
+  const walks=rows.filter(r=>r.isWalk);
   const sumShould=norm.reduce((s,r)=>s+(r.origTotal||r.total||0),0);
   const sumGet=norm.reduce((s,r)=>s+(r.total||0),0);
   const sumComm=norm.reduce((s,r)=>s+(r.commission||0),0);
-  let h=`<div style="font-weight:700;color:#333;padding:3px 0">应收 ¥${sumShould} ｜ 实收 ¥${sumGet} ｜ 提成 ¥${sumComm}${rets.length?' ｜ 退钟 '+rets.length+'单':''}</div>`;
+  let h=`<div style="font-weight:700;color:#333;padding:3px 0">应收 ¥${sumShould} ｜ 实收 ¥${sumGet} ｜ 提成 ¥${sumComm}${rets.length?(' ｜ 退钟 '+rets.length+'单'):''}${walks.length?(' ｜ 走客 '+walks.length+'单'):''}</div>`;
   h+=rows.map(r=>{
     const techs=(r.techs&&r.techs.length)?r.techs.join('、'):(r.tech||'');
     const items=(r.items||[]).map(it=>`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元${it.orig===798?'(双人)':''}`).join('、')||`${r.itemCount||1}钟`;
@@ -261,6 +273,13 @@ function renderDayDetail(rows){
         <div style="font-weight:600">↩️ 退钟 · ${r.room}·${techs}</div>
         <div style="color:#c62828">${r.startTime||'--'}上→${r.endTime||'--'}下（无提成）</div>
         <div style="color:#888">原因：${r.retReason||'--'}</div>
+      </div>`;
+    }
+    if(r.isWalk){
+      return `<div style="padding:4px 0;border-bottom:1px dashed #e5e5ea;color:#9c27b0">
+        <div style="font-weight:600">🚶 走客 · ${r.room}${techs?('·'+techs):''}</div>
+        <div style="color:#9c27b0">${r.startTime||'--'}（未消费）</div>
+        <div style="color:#888">原因：${r.walkReason||'--'}${r.source?('｜'+r.source):''}</div>
       </div>`;
     }
     const note=r.note?`<div style="color:#888">备注：${r.note}</div>`:'';
@@ -278,7 +297,7 @@ function renderSource(records){
   records=records||[];
   const today=currentBizKey();
   const srcMap={};
-  records.filter(r=>r.date===today && !r.isReturn).forEach(r=>{
+  records.filter(r=>r.date===today && !(r.isReturn||r.isWalk)).forEach(r=>{
     const s=r.source||'未选';
     if(!srcMap[s]) srcMap[s]={c:0,t:0};
     srcMap[s].c+=1; srcMap[s].t+=(r.total||0);
@@ -287,6 +306,15 @@ function renderSource(records){
   document.getElementById('sourceStats').innerHTML=names.length
     ? names.map(n=>`<div class="ts"><span class="tn">${n}</span><span>${srcMap[n].c}单</span><span style="color:#007aff;font-weight:700">¥${srcMap[n].t}</span></div>`).join('')
     : '<div style="text-align:center;color:#aaa;padding:10px">暂无</div>';
+}
+
+function renderWalk(records){
+  records=records||[];
+  const today=currentBizKey();
+  const walks=records.filter(r=>r.date===today && r.isWalk);
+  document.getElementById('walkStats').innerHTML = walks.length
+    ? walks.map((r,i)=>`<div class="ts" style="border:none"><span style="color:#9c27b0;font-weight:600">${i+1}. 🚶 ${r.room}${(r.techs&&r.techs.length)?('·'+r.techs.join('、')):''}</span><span style="color:#9c27b0">${r.startTime||''}</span></div><div style="color:#888;font-size:12px;padding:0 10px 6px">原因：${r.walkReason||'--'}${r.source?('｜'+r.source):''}</div>`).join('')
+    : '<div style="text-align:center;color:#aaa;padding:10px">今日无走客</div>';
 }
 
 async function tick(){
@@ -299,6 +327,7 @@ async function tick(){
     renderRoomTimes(st.records, st.rooms);
     renderWeek(st.records);
     renderSource(st.records);
+    renderWalk(st.records);
     document.getElementById('statDot').className='live'; document.getElementById('statDot').textContent='● 实时';
     document.getElementById('updInfo').textContent='更新于 '+fmtClock();
   }catch(e){
