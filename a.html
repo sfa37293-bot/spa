@@ -110,7 +110,7 @@ function setSync(ok,msg){const s=document.getElementById('syncDot');s.className=
 
 async function readAll(){ const r=await fetch(DBURL+'.json',{cache:'no-store'}); if(!r.ok)throw new Error('HTTP '+r.status); return r.json(); }
 async function writeNode(path,val){ const r=await fetch(DBURL+path+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(val)}); if(!r.ok)throw new Error('HTTP '+r.status); }
-async function save(){ try{ await writeNode('', DB); setSync(true,'● 已同步'); }catch(e){ setSync(false,'● 同步失败'); toast('同步失败:'+e.message); } }
+async function save(){ try{ await writeNode('', DB); setSync(true,'● 已同步'); try{ await writeNode('__backup/'+currentBizKey(), DB); }catch(e){} }catch(e){ setSync(false,'● 同步失败'); toast('同步失败:'+e.message); } }
 
 function ensureDB(){
   if(!DB || !DB.rooms) DB={techs:['小丽','小美'],rooms:[{id:0,name:'房间 1',status:'free',cur:null},{id:1,name:'房间 2',status:'free',cur:null}],records:[]};
@@ -120,7 +120,7 @@ function ensureDB(){
 }
 
 async function init(){
-  try{ const d=await readAll(); if(d&&d.rooms)DB=d; }catch(e){}
+  try{ const d=await readAll(); if(d&&d.rooms){ delete d.__backup; DB=d; } }catch(e){}
   ensureDB();
   renderRooms(); renderTechTags(); setSync(true,'● 已同步');
 }
