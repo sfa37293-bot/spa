@@ -203,6 +203,9 @@ function openMonthly(){
   const cols={
     date:'日期',guest:'客流',ret:'退',walk:'走',clock:'总钟',extra:'加钟',should:'应收',get:'实收',disc:'折扣',cash:'现金',scan:'扫码',mt:'美团',comm:'提成'
   };
+  // 列配色（柔和，不用绿/大红/艳色）
+  const colTint=['#f0f2f7','#e8ecf4','#efe9f3','#f2ece6','#e9eef3','#ece9f4','#f0ead9','#eaf0f3','#eee9ee','#e9f0ee','#edf0e8','#eef0f4','#eee6ee'];
+  const keys=Object.keys(cols);
   let rows='';
   days.forEach(key=>{
     const all=records.filter(r=>r.date===key);
@@ -218,15 +221,16 @@ function openMonthly(){
     const cC={cash:0,scan:0,mt:0};
     norm.forEach(r=>{(r.pay||[]).forEach(p=>{const m=String(p).match(/^(.+?)¥(\d+)/); if(m){ if(m[1]=='现金')cC.cash+=parseFloat(m[2]); else if(m[1]=='扫码')cC.scan+=parseFloat(m[2]); else if(m[1]=='美团')cC.mt+=parseFloat(m[2]); }});});
     norm.forEach(r=>{(r.items||[]).forEach(it=>{ if(projCount[it.orig]!==undefined) projCount[it.orig]+=1; });});
-    const v={guest:norm.length+rets.length+walks.length,ret:rets.length,walk:walks.length,clock:clockN,extra:extraN,should:should,get:get,disc:disc,cash:cC.cash,scan:cC.scan,mt:cC.mt,comm:comm};
+    const v={date:key.slice(5),guest:norm.length+rets.length+walks.length,ret:rets.length,walk:walks.length,clock:clockN,extra:extraN,should:should,get:get,disc:disc,cash:cC.cash,scan:cC.scan,mt:cC.mt,comm:comm};
     Object.keys(tot).forEach(k=>tot[k]+=v[k]);
-    rows+=`<tr><td style="padding:5px;font-weight:600">${key.slice(5)}</td><td>${v.guest}</td><td>${v.ret}</td><td>${v.walk}</td><td>${v.clock}</td><td>${v.extra}</td><td>${v.should}</td><td>${v.get}</td><td>${v.disc}</td><td>${v.cash}</td><td>${v.scan}</td><td>${v.mt}</td><td>${v.comm}</td></tr>`;
+    rows+='<tr>'+keys.map((c,ci)=>`<td style="padding:5px;border:1px solid #d9dfe8;background:${ci===0?'#f7f8fb':colTint[ci]};font-weight:${ci===0?'700':'400'};white-space:nowrap">${v[c]}</td>`).join('')+'</tr>';
   });
-  let header='<tr style="background:#1d1d1f;color:#fff">'+Object.keys(cols).map(c=>`<td style="padding:5px;font-weight:700;font-size:11px;white-space:nowrap">${cols[c]}</td>`).join('')+'</tr>';
-  let totRow='<tr style="background:#e8f0fe;font-weight:800"><td style="padding:5px">合计</td><td>'+tot.guest+'</td><td>'+tot.ret+'</td><td>'+tot.walk+'</td><td>'+tot.clock+'</td><td>'+tot.extra+'</td><td>'+tot.should+'</td><td>'+tot.get+'</td><td>'+tot.disc+'</td><td>'+tot.cash+'</td><td>'+tot.scan+'</td><td>'+tot.mt+'</td><td>'+tot.comm+'</td></tr>';
-  let projRow='<div style="font-weight:700;color:#333;padding:6px 8px;border-top:1px solid #ddd;font-size:12px">📊 项目合计：'+[198,298,398,498,798].map(p=>`${p}元×${projCount[p]}${p===798?'(双人)':''}`).join('　')+'</div>';
+  let header='<tr>'+keys.map((c,ci)=>`<td style="padding:6px;border:1px solid #c4ccd8;background:${ci===0?'#3a4270':'#59648f'};color:#fff;font-weight:700;font-size:11px;white-space:nowrap">${cols[c]}</td>`).join('')+'</tr>';
+  let totVal={date:'合计',guest:tot.guest,ret:tot.ret,walk:tot.walk,clock:tot.clock,extra:tot.extra,should:tot.should,get:tot.get,disc:tot.disc,cash:tot.cash,scan:tot.scan,mt:tot.mt,comm:tot.comm};
+  let totRow='<tr>'+keys.map((c,ci)=>`<td style="padding:6px;border:1px solid #c4ccd8;background:${ci===0?'#3a4270':'#e2e7f0'};color:${ci===0?'#fff':'#33415e'};font-weight:800">${totVal[c]}</td>`).join('')+'</tr>';
+  let projRow='<div style="font-weight:700;color:#37415c;padding:6px 8px;border-top:1px solid #c4ccd8;font-size:12px">📊 项目合计：'+[198,298,398,498,798].map(p=>`${p}元×${projCount[p]}${p===798?'(双人)':''}`).join('　')+'</div>';
   const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=280;
-  mask.innerHTML=`<div class="modal" style="max-width:480px"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button><h3>📅 近30天营业统计</h3>${projRow}<div style="overflow:auto;max-height:55vh;margin-top:8px;-webkit-overflow-scrolling:touch"><table style="border-collapse:collapse;font-size:12px;min-width:620px;width:100%"><thead>${header}</thead><tbody>${rows}${totRow}</tbody></table></div><div style="color:#888;font-size:11px;padding:6px 0">客流=开房+退钟+走客；折扣=应收-实收；可上下/左右滑动看全</div><div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
+  mask.innerHTML=`<div class="modal" style="max-width:480px"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button><h3>📅 近30天营业统计</h3>${projRow}<div style="overflow:auto;max-height:55vh;margin-top:8px;-webkit-overflow-scrolling:touch"><table style="border-collapse:collapse;font-size:12px;min-width:620px;width:100%"><thead>${header}</thead><tbody>${rows}${totRow}</tbody></table></div><div style="color:#8792a6;font-size:11px;padding:6px 0">客流=开房+退钟+走客；折扣=应收-实收；可上下/左右滑动看全</div><div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
   document.body.appendChild(mask);
 }
 function openTechComm(){
