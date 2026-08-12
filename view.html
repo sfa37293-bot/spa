@@ -193,53 +193,39 @@ function openExtras(){
 }
 function openMonthly(){
   const records=viewRecords||[];
-  // 最近30个营业日
   const days=[]; const now=new Date();
   for(let i=29;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i); days.push(bizKeyFromDate(d)); }
-  const CM={现金:0,扫码:0,美团:0};
   const CMAP={198:90,298:140,398:190,498:240};
   const projCount={198:0,298:0,398:0,498:0,798:0};
-  let totalGuest=0,totalRet=0,totalWalk=0,totalClock=0,totalExtra=0,totalShould=0,totalGet=0,totalDisc=0,totalComm=0;
-  const totalTech={};
-  let body='';
+  // 合计
+  const tot={guest:0,ret:0,walk:0,clock:0,extra:0,should:0,get:0,disc:0,comm:0,cash:0,scan:0,mt:0};
+  const cols={
+    date:'日期',guest:'客流',ret:'退',walk:'走',clock:'总钟',extra:'加钟',should:'应收',get:'实收',disc:'折扣',cash:'现金',scan:'扫码',mt:'美团',comm:'提成'
+  };
+  let rows='';
   days.forEach(key=>{
-    const todaysAll=records.filter(r=>r.date===key);
-    const norm=todaysAll.filter(r=>!(r.isReturn||r.isWalk));
-    const rets=todaysAll.filter(r=>r.isReturn);
-    const walks=todaysAll.filter(r=>r.isWalk);
-    const clocks=norm.reduce((s,r)=>s+(r.itemCount||1),0);
-    const extra=norm.reduce((s,r)=>s+(r.extraCount||0),0);
+    const all=records.filter(r=>r.date===key);
+    const norm=all.filter(r=>!(r.isReturn||r.isWalk));
+    const rets=all.filter(r=>r.isReturn);
+    const walks=all.filter(r=>r.isWalk);
+    const clockN=norm.reduce((s,r)=>s+(r.itemCount||1),0);
+    const extraN=norm.reduce((s,r)=>s+(r.extraCount||0),0);
     const should=norm.reduce((s,r)=>s+(r.origTotal||r.total||0),0);
     const get=norm.reduce((s,r)=>s+(r.total||0),0);
     const comm=norm.reduce((s,r)=>s+(r.commission||0),0);
     const disc=Math.max(0,should-get);
-    // 渠道
-    const cC={现金:0,扫码:0,美团:0};
-    norm.forEach(r=>{(r.pay||[]).forEach(p=>{const m=String(p).match(/^(.+?)¥(\d+)/); if(m&&cC[m[1]]!==undefined)cC[m[1]]+=parseFloat(m[2]);});});
-    // 项目合计
+    const cC={cash:0,scan:0,mt:0};
+    norm.forEach(r=>{(r.pay||[]).forEach(p=>{const m=String(p).match(/^(.+?)¥(\d+)/); if(m){ if(m[1]=='现金')cC.cash+=parseFloat(m[2]); else if(m[1]=='扫码')cC.scan+=parseFloat(m[2]); else if(m[1]=='美团')cC.mt+=parseFloat(m[2]); }});});
     norm.forEach(r=>{(r.items||[]).forEach(it=>{ if(projCount[it.orig]!==undefined) projCount[it.orig]+=1; });});
-    // 技师提成分配
-    const tMap={};
-    norm.forEach(r=>{
-      (r.items||[]).forEach(it=>{
-        const techs=it.techs&&it.techs.length?it.techs:(r.techs||[r.tech]);
-        const c=(it.orig===798)?(190*techs.length):(CMAP[it.orig]||0);
-        const per=techs.length?Math.round(c/techs.length):c;
-        techs.forEach(tn=>{ tMap[tn]=(tMap[tn]||0)+per; });
-      });
-      if(r.named&&r.namedTech)tMap[r.namedTech]=(tMap[r.namedTech]||0)+20;
-    });
-    Object.keys(tMap).forEach(tn=>{ totalTech[tn]=(totalTech[tn]||0)+tMap[tn]; });
-    totalGuest+=norm.length+rets.length+walks.length; totalRet+=rets.length; totalWalk+=walks.length; totalClock+=clocks; totalExtra+=extra; totalShould+=should; totalGet+=get; totalDisc+=disc; totalComm+=comm;
-    Object.keys(cC).forEach(k=>CM[k]+=cC[k]);
-    const tStr=Object.keys(tMap).map(tn=>`${tn}¥${tMap[tn]}`).join(' ');
-    body+=`<div class="ts" style="border:none"><span style="font-size:11px">${key.slice(5)}</span><span style="color:#555;font-size:11px">客${norm.length+rets.length+walks.length}(退${rets.length}走${walks.length}) 钟${clocks}+${extra}</span><span style="font-size:11px;color:#888">应${should}实${get}折${disc}</span></div><div style="color:#888;font-size:10px;padding:0 8px 4px">提成¥${comm}${tStr?('｜'+tStr):''}</div>`;
+    const v={guest:norm.length+rets.length+walks.length,ret:rets.length,walk:walks.length,clock:clockN,extra:extraN,should:should,get:get,disc:disc,cash:cC.cash,scan:cC.scan,mt:cC.mt,comm:comm};
+    Object.keys(tot).forEach(k=>tot[k]+=v[k]);
+    rows+=`<tr><td style="padding:5px;font-weight:600">${key.slice(5)}</td><td>${v.guest}</td><td>${v.ret}</td><td>${v.walk}</td><td>${v.clock}</td><td>${v.extra}</td><td>${v.should}</td><td>${v.get}</td><td>${v.disc}</td><td>${v.cash}</td><td>${v.scan}</td><td>${v.mt}</td><td>${v.comm}</td></tr>`;
   });
-  const techTot=Object.keys(totalTech).map(tn=>`${tn}¥${totalTech[tn]}`).join(' ');
-  let summary=`<div style="font-weight:700;color:#333;padding:6px 8px;background:#f0f0f0;border-radius:8px;font-size:12px">30天合计：客流${totalGuest}（退${totalRet}走${totalWalk}）｜总钟${totalClock}+加${totalExtra}｜应收¥${totalShould} 实收¥${totalGet} 折扣¥${totalDisc}｜现金¥${CM.现金} 扫码¥${CM.扫码} 美团¥${CM.美团}｜提成¥${totalComm}${techTot?('（'+techTot+'）'):''}</div>`;
-  let projRow='<div style="font-weight:700;color:#333;padding:6px 8px;border-top:1px solid #ddd;font-size:12px">📊 项目合计：'+[198,298,398,498,798].map(p=>`${p}元×${projCount[p]}${p===798?'（双人）':''}`).join('　')+'</div>';
+  let header='<tr style="background:#1d1d1f;color:#fff">'+Object.keys(cols).map(c=>`<td style="padding:5px;font-weight:700;font-size:11px;white-space:nowrap">${cols[c]}</td>`).join('')+'</tr>';
+  let totRow='<tr style="background:#e8f0fe;font-weight:800"><td style="padding:5px">合计</td><td>'+tot.guest+'</td><td>'+tot.ret+'</td><td>'+tot.walk+'</td><td>'+tot.clock+'</td><td>'+tot.extra+'</td><td>'+tot.should+'</td><td>'+tot.get+'</td><td>'+tot.disc+'</td><td>'+tot.cash+'</td><td>'+tot.scan+'</td><td>'+tot.mt+'</td><td>'+tot.comm+'</td></tr>';
+  let projRow='<div style="font-weight:700;color:#333;padding:6px 8px;border-top:1px solid #ddd;font-size:12px">📊 项目合计：'+[198,298,398,498,798].map(p=>`${p}元×${projCount[p]}${p===798?'(双人)':''}`).join('　')+'</div>';
   const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=280;
-  mask.innerHTML=`<div class="modal" style="max-width:460px"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button><h3>📅 近30天营业统计</h3>${summary}${projRow}<div style="max-height:60vh;overflow-y:auto;margin-top:8px">${body}</div><div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
+  mask.innerHTML=`<div class="modal" style="max-width:480px"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button><h3>📅 近30天营业统计</h3>${projRow}<div style="overflow-x:auto;margin-top:8px"><table style="border-collapse:collapse;font-size:12px;min-width:620px;width:100%"><thead>${header}</thead><tbody>${rows}${totRow}</tbody></table></div><div style="color:#888;font-size:11px;padding:6px 0">客流=开房+退钟+走客；折扣=应收-实收；可左右滑动看全</div><div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
   document.body.appendChild(mask);
 }
 function openTechComm(){
