@@ -149,7 +149,7 @@ function renderRooms(){
     } else {
       const cur=room.cur;
       const techsStr=(cur.techs||[cur.tech]).join('、');
-      const items=cur.items.map((it,i)=>`<div class="line"><span class="k">项目${i+1}</span><span class="v">${it.price}元${(it.techs&&it.techs.length>1)?'·'+it.techs.join('/'):''}</span></div>`).join('');
+      const items=cur.items.map((it,i)=>`<div class="line"><span class="k">项目${i+1}</span><span class="v">${it.price}元${(it.techs&&it.techs.length>1)?'·'+it.techs.join('/'):''} <span style="color:#007aff;font-size:12px;cursor:pointer" onclick="openEditItem(${ri},${i})">✎改</span></span></div>`).join('');
       b.innerHTML=`
         <div class="cur-info">
           <div class="line"><span class="k">技师</span><span class="v">${techsStr}</span></div>
@@ -158,7 +158,7 @@ function renderRooms(){
         <div class="sec">加钟（可选择技师）</div>
         <div class="field"><label>加钟技师（双人798需选2人）</label><div class="tags" id="ck${ri}">${DB.techs.map((t,i)=>`<span class="tag2" data-i="${i}" onclick="toggleClockTech(${ri},${i})">${t}</span>`).join('')}</div><div class="hint" id="ch${ri}"></div></div>
         <div class="projects" id="pw${ri}"></div>
-        <div class="btn-row"><button class="btn a" onclick="addClock(${ri})">加钟</button><button class="btn r" onclick="openSettle(${ri})">下钟</button></div>
+        <div class="btn-row"><button class="btn a" onclick="addClock(${ri})">加钟</button><button class="btn" style="background:#6a1b9a" onclick="openEditItem(${ri})">✎ 改钟</button><button class="btn r" onclick="openSettle(${ri})">下钟</button></div>
         <div class="btn-row"><button class="btn gr" onclick="openReturn(${ri})">↩️ 退钟</button></div>`;
       const pw=b.querySelector('#pw'+ri);
       PROJS.forEach(p=>{const el=document.createElement('div');el.className='proj';el.innerHTML=`<span>${p}元${isPair(p)?'（双人）':''}</span>`;el.onclick=()=>{pw.querySelectorAll('.proj').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');pw.dataset.sel=(isPair(p)?('pair:'+p):p);};pw.appendChild(el);});
@@ -245,6 +245,51 @@ async function addClock(ri){
   }
   DB.rooms[ri].cur.items.push({price:selPrice,techs:picked.slice()});
   await save(); renderRooms(); toast('✅ 已加钟');
+}
+function openEditItem(ri,itemIdx){
+  const cur=DB.rooms[ri].cur;
+  const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=255;
+  let rows=cur.items.map((it,i)=>{
+    const priceOpts=PROJS.map(p=>`<option value="${p}" ${p===it.price?'selected':''}>${p}元${isPair(p)?'(双人)':''}</option>`).join('');
+    return `<div style="border:1px solid #eee;border-radius:8px;padding:8px;margin-bottom:8px">
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px">项目${i+1}：${it.price}元${(it.techs&&it.techs.length>1)?'（'+it.techs.join('/')+'）':''}</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <select data-editprice="${i}" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px">${priceOpts}</select>
+        <span style="display:flex;justify-content:space-between"><button type="button" style="background:#fee;color:#c62828;border:none;border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer" onclick="delEditItem(${ri},${i},this)">删除</button></span>
+      </div>
+    </div>`;
+  }).join('');
+  mask.innerHTML=`<div class="modal"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
+    <h3>✎ 改钟</h3>
+    <div style="color:#c62828;font-size:12px;margin-bottom:8px">改钟后技师提成按新价计算</div>
+    ${rows||'<div style="color:#aaa;text-align:center;padding:10px">无项目</div>'}
+    <div class="field"><label>备注（必填，说明改动原因）</label><input id="editRemark" placeholder="如：客户从398改498／录错改项目等"></div>
+    <div class="btn-row"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">取消</button><button class="btn g" onclick="confirmEditItems(${ri},this.closest('.modal-mask'))">确认改钟</button></div></div>`;
+  document.body.appendChild(mask);
+}
+let delFlags={};
+function delEditItem(ri,idx,btn){
+  const key=ri+'_'+idx;
+  delFlags[key]=!delFlags[key];
+  if(btn){ if(delFlags[key]){ btn.style.background='#c62828'; btn.textContent='待删·点取消'; } else { btn.style.background='#fee'; btn.textContent='删除'; } }
+  toast(delFlags[key]?'🚩 已标记删除，确认改钟后生效；再点取消':'已取消删除');
+}
+function confirmEditItems(ri,mask){
+  const remark=((mask.querySelector('#editRemark')||{}).value||'').trim();
+  if(!remark){ toast('⚠️ 改钟必须填写备注'); return; }
+  // 应用改价
+  mask.querySelectorAll('select[data-editprice]').forEach(sel=>{
+    const idx=parseInt(sel.getAttribute('data-editprice'));
+    const newPrice=parseInt(sel.value);
+    const it=DB.rooms[ri].cur.items[idx];
+    if(it && it.price!==newPrice){ it.price=newPrice; it.orig=newPrice; }
+  });
+  // 应用删除(标记过的)
+  const keep=DB.rooms[ri].cur.items.filter((it,idx)=>!delFlags[ri+'_'+idx]);
+  DB.rooms[ri].cur.items=keep;
+  delFlags={};
+  DB.rooms[ri].cur.editRemark=(DB.rooms[ri].cur.editRemark?DB.rooms[ri].cur.editRemark+'；':'')+remark;
+  mask.remove(); save(); renderRooms(); toast('✅ 改钟成功');
 }
 function openWalk(){
   const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=250;
@@ -339,7 +384,7 @@ async function confirmOut(ri,mask){
   const payArr=[]; if(cash>0)payArr.push('现金¥'+cash); if(scan>0)payArr.push('扫码¥'+scan); if(mt>0)payArr.push('美团¥'+mt);
   const itemsDetail=cur.items.map((it,i)=>({orig:it.price, fin:fin[i]||it.price, techs:it.techs||[]}));
   const note=(mask.querySelector('#settleNote')||{}).value||'';
-  DB.records.push({date:currentBizKey(),time:new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}),room:DB.rooms[ri].name,techs:(cur.techs||[cur.tech]),total:total,commission:commission,origTotal:origTotal,itemCount:cur.items.length,extraCount:Math.max(0,cur.items.length-1),startTime:cur.startTime||'',endTime:endNow.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),pay:payArr,items:itemsDetail,note:note,named:named,namedTech:namedTech,source:cur.source||''});
+  DB.records.push({date:currentBizKey(),time:new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}),room:DB.rooms[ri].name,techs:(cur.techs||[cur.tech]),total:total,commission:commission,origTotal:origTotal,itemCount:cur.items.length,extraCount:Math.max(0,cur.items.length-1),startTime:cur.startTime||'',endTime:endNow.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),pay:payArr,items:itemsDetail,note:note,named:named,namedTech:namedTech,source:cur.source||'',editRemark:cur.editRemark||''});
   DB.rooms[ri].status='free'; DB.rooms[ri].cur=null;
   mask.remove(); await save(); renderRooms(); toast('✅ 已结算 共 ¥'+total);
 }
@@ -381,11 +426,12 @@ function renderRoomTimes(){
       }).join('')||`1. ${r.itemCount||1}钟`;
       const pay=(r.pay&&r.pay.length)?r.pay.join('/'):'--';
       const note=r.note?`<div style="color:#888">备注：${r.note}</div>`:'';
+      const editTxt=r.editRemark?`<div style="color:#6a1b9a">✎ 改钟：${r.editRemark}</div>`:'';
       const namedTxt=(r.named&&r.namedTech)?`<div style="color:#e65100">⭐ 点钟：${r.namedTech} +20</div>`:'';
       const srcTxt=r.source?`<div style="color:#555">客户来源：${r.source}</div>`:'';
       return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px;color:#333">
         <div style="font-weight:600">${i+1}. 技师：${(r.techs||[r.tech]).join('、')}</div>
-        <div style="color:#555">🕒 ${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</div>${itHtml}${namedTxt}${srcTxt}
+        <div style="color:#555">🕒 ${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</div>${itHtml}${namedTxt}${srcTxt}${editTxt}
         <div style="color:#555">结账：${pay||'--'}</div>
         <div style="color:#888">应收 ¥${r.origTotal||0} → 实收 ¥${r.total||0}（提成合计 ¥${r.commission||0}）</div>${note}</div>`;
     }).join('');
