@@ -297,14 +297,21 @@ function renderRoomTimes(){
           <div style="color:#c62828">🕒 ${r.startTime||'--'} 上 → ${r.endTime||'--'}</div>
           <div style="color:#888">原因：${r.retReason||'--'}（无提成）</div></div>`;
       }
-      const items=(r.items||[]).map(it=>`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元${(it.techs&&it.techs.length>1)?'('+it.techs.join('/')+')':''}`).join('、')||`${r.itemCount||1}钟`;
+      let itHtml=(r.items||[]).map((it,ix)=>{
+        const techs=it.techs&&it.techs.length?it.techs:(r.techs||[r.tech]);
+        let commTxt;
+        if(it.orig===798){ commTxt=techs.map(t=>`${t}¥190`).join(' / '); }
+        else { commTxt=techs.map((t,ti)=>ti===0?`${t}¥${({198:90,298:140,398:190,498:240}[it.orig]||0)}`:`${t}`).join(' / '); }
+        const priceTxt=`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元${it.orig===798?'（双人）':''}`;
+        return `<div style="color:#333">${ix+1}. ${priceTxt}｜${techs.join('、')}｜提成 ${commTxt}</div>`;
+      }).join('')||`1. ${r.itemCount||1}钟`;
       const pay=(r.pay&&r.pay.length)?r.pay.join('/'):'--';
       const note=r.note?`<div style="color:#888">备注：${r.note}</div>`:'';
       return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px;color:#333">
         <div style="font-weight:600">${i+1}. 技师：${(r.techs||[r.tech]).join('、')}</div>
-        <div style="color:#555">🕒 ${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</div>
-        <div style="color:#555">项目：${items}｜结账：${pay||'--'}</div>
-        <div style="color:#888">应收 ¥${r.origTotal||0} → 实收 ¥${r.total||0}（提成 ¥${r.commission||0}）</div>${note}</div>`;
+        <div style="color:#555">🕒 ${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</div>${itHtml}
+        <div style="color:#555">结账：${pay||'--'}</div>
+        <div style="color:#888">应收 ¥${r.origTotal||0} → 实收 ¥${r.total||0}（提成合计 ¥${r.commission||0}）</div>${note}</div>`;
     }).join('');
     html+='</div>';
   });
@@ -336,7 +343,7 @@ function renderStats(){
   });
   const names=Object.keys(map);
   document.getElementById('eTechList').innerHTML = names.length
-    ? names.map(n=>`<div style="display:flex;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px"><span style="font-weight:600">${n}</span><span>${map[n].c}钟</span><span style="color:#2e7d32;font-weight:700">¥${map[n].t}</span></div>`).join('')
+    ? names.map((n,idx)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px"><span style="font-weight:600;color:#888;font-size:12px">${idx+1}.</span><span style="font-weight:600;flex:1;margin-left:6px">${n}</span><span>${map[n].c}钟</span><span style="color:#2e7d32;font-weight:700">¥${map[n].t}</span></div>`).join('')
     : '<div style="text-align:center;color:#aaa;padding:10px">暂无记录</div>';
 }
 function renderTechTags(){
