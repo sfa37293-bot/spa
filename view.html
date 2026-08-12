@@ -69,6 +69,10 @@
     <div id="roomTimes"></div>
   </div>
   <div class="panel">
+    <div class="gt">🧭 客户来源</div>
+    <div id="sourceStats"></div>
+  </div>
+  <div class="panel">
     <div class="gt">📅 近7天每日营业</div>
     <div id="weekList"></div>
   </div>
@@ -180,9 +184,10 @@ function renderRoomTimes(records,rooms){
           const pay=(r.pay&&r.pay.length)?r.pay.join('/'):'--';
           const note=r.note?`<div style="color:#888">备注：${r.note}</div>`:'';
           const namedTxt=(r.named&&r.namedTech)?`<div style="color:#e65100">⭐ 点钟：${r.namedTech} +20</div>`:'';
+          const srcTxt=r.source?`<div style="color:#555">客户来源：${r.source}</div>`:'';
           return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px">
             <div style="font-weight:600;color:#333">技师：${techs}</div>
-            <div style="color:#555">${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</div>${itHtml}${namedTxt}
+            <div style="color:#555">${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</div>${itHtml}${namedTxt}${srcTxt}
             <div style="color:#555">结账：${pay}</div>
             <div style="color:#888">应收 ¥${r.origTotal||0} → 实收 ¥${r.total||0}（提成合计 ¥${r.commission||0}）</div>${note}
           </div>`;
@@ -253,6 +258,21 @@ function renderDayDetail(rows){
   return h;
 }
 
+function renderSource(records){
+  records=records||[];
+  const today=currentBizKey();
+  const srcMap={};
+  records.filter(r=>r.date===today && !r.isReturn).forEach(r=>{
+    const s=r.source||'未选';
+    if(!srcMap[s]) srcMap[s]={c:0,t:0};
+    srcMap[s].c+=1; srcMap[s].t+=(r.total||0);
+  });
+  const names=Object.keys(srcMap);
+  document.getElementById('sourceStats').innerHTML=names.length
+    ? names.map(n=>`<div class="ts"><span class="tn">${n}</span><span>${srcMap[n].c}单</span><span style="color:#007aff;font-weight:700">¥${srcMap[n].t}</span></div>`).join('')
+    : '<div style="text-align:center;color:#aaa;padding:10px">暂无</div>';
+}
+
 async function tick(){
   try{
     const st = await readNode('');
@@ -261,6 +281,7 @@ async function tick(){
     renderStats(st.records);
     renderRoomTimes(st.records, st.rooms);
     renderWeek(st.records);
+    renderSource(st.records);
     document.getElementById('statDot').className='live'; document.getElementById('statDot').textContent='● 实时';
     document.getElementById('updInfo').textContent='更新于 '+fmtClock();
   }catch(e){
