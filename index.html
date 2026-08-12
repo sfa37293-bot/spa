@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SPA 点单系统</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:#f5f5f7; color:#1d1d1f; padding-bottom:80px;
+  }
+  .topbar {
+    position:fixed; top:0; left:0; right:0; z-index:100;
+    background:#1d1d1f; color:#fff; padding:14px 16px;
+    display:flex; justify-content:space-between; align-items:center;
+    box-shadow:0 2px 8px rgba(0,0,0,.2);
+  }
+  .topbar h1 { font-size:17px; font-weight:600; }
+  .topbar .sub { font-size:12px; opacity:.7; margin-top:2px; }
+  .topbar button {
+    background:#fff; color:#1d1d1f; border:none; border-radius:8px;
+    padding:8px 12px; font-size:13px; font-weight:600; cursor:pointer;
+  }
+  .container { max-width:560px; margin:0 auto; padding:96px 14px 20px; }
+
+  /* 房间卡片 */
+  .room {
+    background:#fff; border-radius:14px; margin-bottom:16px;
+    box-shadow:0 1px 6px rgba(0,0,0,.08); overflow:hidden;
+  }
+  .room-head {
+    padding:16px; display:flex; justify-content:space-between; align-items:center;
+    border-bottom:1px solid #eee; cursor:pointer;
+  }
+  .room-head .name { font-size:17px; font-weight:700; }
+  .room-head .status { font-size:13px; padding:4px 10px; border-radius:20px; font-weight:600; }
+  .status.free { background:#e8f5e9; color:#2e7d32; }
+  .status.busy { background:#ffebee; color:#c62828; }
+  .room-body { padding:14px; }
+
+  /* 上钟表单 */
+  .field { margin-bottom:12px; }
+  .field label { display:block; font-size:13px; color:#666; margin-bottom:6px; font-weight:600; }
+  .field input, .field select {
+    width:100%; padding:12px 14px; border:1px solid #ddd; border-radius:10px;
+    font-size:15px; background:#fafafa; -webkit-appearance:none; appearance:none;
+  }
+  .field input:focus, .field select:focus { outline:none; border-color:#007aff; background:#fff; }
+
+  .projects { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+  .proj {
+    padding:14px; text-align:center; border:2px solid #ddd; border-radius:10px;
+    font-size:15px; font-weight:600; cursor:pointer; background:#fafafa; transition:all .15s;
+  }
+  .proj.sel { border-color:#007aff; background:#e8f0fe; color:#007aff; }
+  .proj .price { font-size:12px; font-weight:400; color:#888; display:block; margin-top:2px; }
+
+  .btn-row { display:flex; gap:10px; margin-top:14px; }
+  .btn {
+    flex:1; padding:13px; border:none; border-radius:10px; font-size:15px;
+    font-weight:600; cursor:pointer; color:#fff;
+  }
+  .btn.primary { background:#007aff; }
+  .btn.green { background:#2e7d32; }
+  .btn.gray { background:#8e8e93; }
+  .btn.red { background:#e53935; }
+  .btn.amber { background:#f59e0b; }
+
+  /* 上钟中信息 */
+  .cur-info { background:#f0f4ff; border:1px solid #cfe0ff; border-radius:10px; padding:12px; margin-bottom:14px; }
+  .cur-info .line { display:flex; justify-content:space-between; padding:3px 0; font-size:14px; }
+  .cur-info .line .k { color:#666; }
+  .cur-info .line .v { font-weight:700; }
+  .divider { height:1px; background:#e5e5ea; margin:10px 0; }
+  .section-title { font-size:14px; font-weight:700; margin:12px 0 8px; color:#333; }
+
+  /* 下钟结算 */
+  .settle-list { margin-bottom:10px; }
+  .settle-item {
+    display:flex; align-items:center; gap:8px; padding:10px; background:#fff;
+    border:1px solid #eee; border-radius:8px; margin-bottom:8px;
+  }
+  .settle-item .info { flex:1; font-size:14px; }
+  .settle-item .info .pname { font-weight:600; }
+  .settle-item .info .meta { font-size:12px; color:#888; margin-top:2px; }
+  .settle-item .price-input {
+    width:86px; padding:8px; border:1px solid #ddd; border-radius:8px; text-align:center; font-size:15px;
+  }
+  .delx { width:28px; height:28px; border:none; background:#fee; color:#c62828; border-radius:50%; font-size:16px; cursor:pointer; }
+  .total-bar {
+    display:flex; justify-content:space-between; padding:12px; background:#1d1d1f; color:#fff;
+    border-radius:10px; font-size:16px; font-weight:700; margin-top:4px;
+  }
+  .total-bar .tip { font-size:11px; font-weight:400; opacity:.7; display:block; }
+
+  /* 统计面板 */
+  .stats { background:#fff; border-radius:14px; padding:16px; margin-bottom:16px; box-shadow:0 1px 6px rgba(0,0,0,.08); }
+  .stats h2 { font-size:16px; margin-bottom:12px; }
+  .stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px; }
+  .stat-grid.four { grid-template-columns:repeat(2,1fr); }
+  .day-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; background:#f5f7fa; border-radius:10px; padding:6px 8px; }
+  .day-nav button { background:#fff; border:1px solid #ddd; border-radius:8px; padding:6px 10px; font-size:13px; cursor:pointer; }
+  .day-nav .dlabel { font-size:15px; font-weight:700; }
+  .stat-box { background:#f5f7fa; border-radius:10px; padding:12px; text-align:center; }
+  .stat-box .num { font-size:20px; font-weight:800; color:#007aff; }
+  .stat-box .lbl { font-size:11px; color:#888; margin-top:2px; }
+  .tech-stat { display:flex; justify-content:space-between; padding:8px 10px; border-bottom:1px solid #f0f0f0; font-size:14px; }
+  .tech-stat .tname { font-weight:600; }
+  .tech-stat .tc { color:#888; }
+  .tech-stat .tj { color:#2e7d32; font-weight:700; }
+  .btn.small { flex:none; padding:8px 10px; font-size:12px; width:auto; }
+  .btn.transparent { background:transparent; color:#007aff; border:none; }
+
+  /* 技师管理 */
+  .tech-mgmt { margin-bottom:16px; }
+  .tech-add { display:flex; gap:8px; }
+  .tech-add input { flex:1; }
+  .tech-tags { margin-top:8px; display:flex; flex-wrap:wrap; gap:8px; }
+  .tag { background:#eef1f5; padding:6px 12px; border-radius:20px; font-size:13px; display:flex; align-items:center; gap:6px; }
+  .tag .x { color:#c62828; font-weight:700; cursor:pointer; }
+  .modal-mask { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:200; display:none; justify-content:center; align-items:flex-start; padding:40px 16px; }
+  .modal-mask.show { display:flex; }
+  .modal { background:#fff; border-radius:14px; width:100%; max-width:400px; padding:18px; }
+  .modal h3 { font-size:16px; margin-bottom:14px; }
+  .modal .close { float:right; background:none; border:none; font-size:20px; color:#999; cursor:pointer; }
+  .toast { position:fixed; bottom:110px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.85); color:#fff; padding:10px 18px; border-radius:8px; font-size:14px; z-index:300; display:none; }
+  .empty { text-align:center; color:#aaa; padding:20px 0; font-size:14px; }
+  .muted { color:#888; font-size:12px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <h1>SPA 点单系统</h1>
+    <div class="sub" id="todayLab">—</div>
+  </div>
+  <button onclick="openTechMgmt()">👥 技师</button>
+</div>
+
+<div class="container">
+
+  <!-- 房间区 -->
+  <div id="rooms"></div>
+
+  <!-- 统计 -->
+  <div class="stats">
+    <h2>📊 今日统计</h2>
+    <div class="day-nav">
+      <button onclick="shiftDay(-1)">‹ 前一天</button>
+      <span class="dlabel" id="statsDayLab"></span>
+      <button onclick="shiftDay(1)">后一天 ›</button>
+    </div>
+    <div class="stat-grid four">
+      <div class="stat-box"><div class="num" id="sTotal">0</div><div class="lbl">总钟数</div></div>
+      <div class="stat-box"><div class="num" id="sExtra">0</div><div class="lbl">加钟数</div></div>
+      <div class="stat-box"><div class="num" id="sShould">0</div><div class="lbl">应收总数</div></div>
+      <div class="stat-box"><div class="num" id="sReceived">0</div><div class="lbl">实收总数</div></div>
+      <div class="stat-box"><div class="num" id="sCommission">0</div><div class="lbl" style="font-size:10px">技师提成</div></div>
+    </div>
+    <div id="techStatList"></div>
+  </div>
+
+</div>
+
+<!-- 技师管理弹窗 -->
+<div class="modal-mask" id="techMask" onclick="if(event.target===this)closeTechMgmt()">
+  <div class="modal">
+    <button class="close" onclick="closeTechMgmt()">×</button>
+    <h3>👥 技师管理（可任意添加/改名/删除）</h3>
+    <div class="tech-mgmt">
+      <div class="tech-add">
+        <input type="text" id="newTechName" placeholder="输入技师姓名">
+        <button class="btn primary" style="flex:none;width:auto;padding:8px 14px" onclick="addTech()">添加</button>
+      </div>
+      <div class="tech-tags" id="techTags"></div>
+    </div>
+    <button class="btn gray" onclick="closeTechMgmt()" style="width:100%;margin-top:8px">关闭</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============ 数据模型 ============
+const PROJECTS = [198, 298, 398, 498];
+const DB_KEY = 'spa_order_db_v1';
+
+const defaultDB = {
+  techs: ['小丽', '小美'],     // 技师名单（可改）
+  rooms: [
+    { id: 0, name: '房间 1', status: 'free', cur: null },  // cur: 上钟数据
+    { id: 1, name: '房间 2', status: 'free', cur: null }
+  ],
+  records: []  // 已完成订单 {time, room, tech, items:[{price}], total, commission}
+};
+
+let DB = load();
+let statsDate = new Date(); // 统计面板当前查看的日期
+
+function fmtDate(d){ return d.toLocaleDateString('zh-CN'); }
+function dateKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function shiftDay(n){ const nd = new Date(statsDate); nd.setDate(nd.getDate()+n); statsDate=nd; render(); }
+
+function load(){
+  try {
+    const raw = localStorage.getItem(DB_KEY);
+    if(raw){ const d = JSON.parse(raw); if(d && d.rooms && d.techs) return d; }
+  } catch(e){}
+  return JSON.parse(JSON.stringify(defaultDB));
+}
+function save(){ localStorage.setItem(DB_KEY, JSON.stringify(DB)); }
+
+function todayStr(){
+  return new Date().toLocaleDateString('zh-CN', {month:'long', day:'numeric', weekday:'long'});
+}
+
+// ============ 渲染 ============
+function render(){
+  document.getElementById('todayLab').textContent = todayStr();
+  renderRooms();
+  renderStats();
+  renderTechTags();
+}
+
+function renderRooms(){
+  const box = document.getElementById('rooms');
+  box.innerHTML = '';
+  DB.rooms.forEach((room, idx) => {
+    const busy = room.status === 'busy';
+    const card = document.createElement('div');
+    card.className = 'room';
+
+    let statusHtml = busy
+      ? '<span class="status busy">上钟中</span>'
+      : '<span class="status free">空闲</span>';
+
+    // 头部
+    const head = document.createElement('div');
+    head.className = 'room-head';
+    head.innerHTML = `<span class="name">${room.name}</span>${statusHtml}`;
+    head.onclick = () => toggleRoom(idx);
+    card.appendChild(head);
+
+    // 内容
+    const body = document.createElement('div');
+    body.className = 'room-body';
+    body.id = 'roomBody' + idx;
+    body.style.display = busy ? 'block' : 'none';
+
+    if(!busy){
+      // ---- 上钟表单 ----
+      body.innerHTML = `
+        <div class="field">
+          <label>选择技师</label>
+          <select id="techSel${idx}">${DB.techs.map(t=>`<option value="${t}">${t}</option>`).join('')}</select>
+        </div>
+        <div class="field">
+          <label>选择项目</label>
+          <div id="projWrap${idx}" class="projects"></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn green" onclick="startClock(${idx})">🔔 上钟</button>
+        </div>
+        <div class="muted" style="margin-top:8px;text-align:center">点击标题展开房间操作</div>
+      `;
+      const pw = body.querySelector('#projWrap'+idx);
+      PROJECTS.forEach(p=>{
+        const b = document.createElement('div');
+        b.className='proj';
+        b.innerHTML = `<span>${p}元</span><span class="price">提成 ${p*0.5}元</span>`;
+        b.onclick = ()=>{ pw.querySelectorAll('.proj').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); pw.dataset.sel=p; };
+        pw.appendChild(b);
+      });
+    } else {
+      // ---- 上钟中：显示当前信息 + 加钟 + 下钟 ----
+      const cur = room.cur;
+      const itemsHtml = cur.items.map((it,i)=>
+        `<div class="line"><span class="k">项目${i+1}</span><span class="v">${it.price}元</span></div>`
+      ).join('');
+      body.innerHTML = `
+        <div class="cur-info">
+          <div class="line"><span class="k">技师</span><span class="v">${cur.tech}</span></div>
+          <div class="line"><span class="k">上钟时间</span><span class="v">${cur.startTime}</span></div>
+          ${itemsHtml}
+        </div>
+        <div class="section-title">➕ 加钟（可多次添加）</div>
+        <div id="projWrap${idx}" class="projects"></div>
+        <div class="btn-row">
+          <button class="btn amber" onclick="addClock(${idx})" style="flex:1">加钟</button>
+          <button class="btn red" onclick="openSettle(${idx})" style="flex:1">🕒 下钟结算</button>
+        </div>
+      `;
+      const pw = body.querySelector('#projWrap'+idx);
+      PROJECTS.forEach(p=>{
+        const b = document.createElement('div');
+        b.className='proj';
+        b.innerHTML = `<span>${p}元</span><span class="price">提成 ${p*0.5}元</span>`;
+        b.onclick = ()=>{ pw.querySelectorAll('.proj').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); pw.dataset.sel=p; };
+        pw.appendChild(b);
+      });
+    }
+
+    card.appendChild(body);
+    box.appendChild(card);
+  });
+}
+
+function toggleRoom(idx){
+  const body = document.getElementById('roomBody'+idx);
+  if(body) body.style.display = body.style.display === 'none' ? 'block' : 'none';
+}
+
+// ============ 上钟 / 加钟 / 下钟 ============
+function startClock(idx){
+  const room = DB.rooms[idx];
+  const tech = document.getElementById('techSel'+idx).value;
+  const pw = document.getElementById('projWrap'+idx);
+  const sel = pw.dataset.sel;
+  if(!sel){ toast('请先选择项目'); return; }
+  room.status = 'busy';
+  room.cur = {
+    tech,
+    startTime: new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),
+    items: [{ price: parseInt(sel) }]
+  };
+  save(); render(); toast('✅ 上钟成功：'+tech);
+}
+
+function addClock(idx){
+  const room = DB.rooms[idx];
+  const pw = document.getElementById('projWrap'+idx);
+  const sel = pw.dataset.sel;
+  if(!sel){ toast('请先选择要加的项目'); return; }
+  room.cur.items.push({ price: parseInt(sel) });
+  save(); render(); toast('✅ 已加钟');
+}
+
+// 下钟结算弹窗
+function openSettle(idx){
+  const room = DB.rooms[idx];
+  const cur = room.cur;
+  const mask = document.createElement('div');
+  mask.className = 'modal-mask show';
+  mask.style.zIndex = 250;
+
+  let itemsHtml = cur.items.map((it,i)=>
+    `<div class="settle-item">
+      <div class="info">
+        <div class="pname">项目 ${i+1}（原价 ${it.price}元）</div>
+        <div class="meta">原提成 ${it.price*0.5}元 · 此单提成已按原价锁定</div>
+      </div>
+      <input class="price-input" type="number" value="${it.price}" data-idx="${i}">
+    </div>`
+  ).join('');
+
+  mask.innerHTML = `
+    <div class="modal" style="max-width:440px">
+      <button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
+      <h3>🕒 下钟结算 · ${cur.tech}</h3>
+      <div class="muted" style="margin-bottom:10px">技师：${cur.tech} ｜ 上钟：${cur.startTime}</div>
+      <div class="settle-list">${itemsHtml}</div>
+      <div class="total-bar">
+        <div>结算总额<br><span class="tip">修改下方价位可做折扣</span></div>
+        <div><span id="settleTotalLab">—</span></div>
+      </div>
+      <div class="btn-row" style="margin-top:14px">
+        <button class="btn gray" onclick="this.closest('.modal-mask').remove()">取消</button>
+        <button class="btn green" onclick="confirmSettle(${idx}, this.closest('.modal-mask'))">确认下钟</button>
+      </div>
+    </div>
+  `;
+
+  mask.querySelector('.settle-list').addEventListener('input', ()=>{ calcTotal(mask, cur); });
+  calcTotal(mask, cur);
+  document.body.appendChild(mask);
+}
+
+function calcTotal(mask, cur){
+  const inputs = mask.querySelectorAll('.price-input');
+  let total = 0;
+  inputs.forEach((inp,i)=>{
+    let v = parseFloat(inp.value);
+    if(isNaN(v) || v<0) v = 0;
+    total += v;
+  });
+  // 提成按原价
+  const comm = cur.items.reduce((s,it)=> s + it.price*0.5, 0);
+  mask.querySelector('#settleTotalLab').innerHTML = `¥${total}<br><span class="tip" style="color:#4caf50">提成(原价50%) ¥${comm}</span>`;
+}
+
+function confirmSettle(idx, mask){
+  const room = DB.rooms[idx];
+  const cur = room.cur;
+  const inputs = mask.querySelectorAll('.price-input');
+  let finalItems = [];
+  let total = 0;
+  inputs.forEach((inp,i)=>{
+    let v = parseFloat(inp.value);
+    if(isNaN(v) || v<0) v = 0;
+    finalItems.push({ price: v });
+    total += v;
+  });
+  // 提成按原价
+  const commission = cur.items.reduce((s,it)=> s + it.price*0.5, 0);
+
+  DB.records.push({
+    date: dateKey(new Date()),
+    time: new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}),
+    room: room.name,
+    tech: cur.tech,
+    total: total,
+    commission: commission,
+    origTotal: cur.items.reduce((s,it)=>s+it.price,0),
+    itemCount: cur.items.length,             // 总钟数（含加钟）
+    extraCount: Math.max(0, cur.items.length-1)  // 加钟数（首钟不算）
+  });
+
+  room.status = 'free';
+  room.cur = null;
+  mask.remove();
+  save(); render();
+  toast('✅ 已下钟结算，总额 ¥'+total);
+}
+
+// ============ 统计 ============
+function renderStats(){
+  const key = dateKey(statsDate);
+  const todays = DB.records.filter(r=>r.date===key);
+
+  // 总钟数 / 加钟数（旧数据无字段按1钟算，兼容）
+  const totalClocks = todays.reduce((s,r)=> s + (r.itemCount||1), 0);
+  const extraClocks = todays.reduce((s,r)=> s + (r.extraCount||0), 0);
+  const should = todays.reduce((s,r)=> s + (r.origTotal||r.total), 0); // 应收=原价
+  const received = todays.reduce((s,r)=> s + r.total, 0);              // 实收=结算价
+  const comm = todays.reduce((s,r)=> s + r.commission, 0);
+
+  document.getElementById('statsDayLab').textContent = fmtDate(statsDate);
+  document.getElementById('sTotal').textContent = totalClocks;
+  document.getElementById('sExtra').textContent = extraClocks;
+  document.getElementById('sShould').textContent = should ? should.toFixed(0) : '0';
+  document.getElementById('sReceived').textContent = received ? received.toFixed(0) : '0';
+  document.getElementById('sCommission').textContent = comm ? comm.toFixed(0) : '0';
+
+  // 技师提成统计
+  const techMap = {};
+  todays.forEach(r=>{
+    if(!techMap[r.tech]) techMap[r.tech] = {count:0, commission:0};
+    techMap[r.tech].count++;
+    techMap[r.tech].commission += r.commission;
+  });
+  const listEl = document.getElementById('techStatList');
+  const names = Object.keys(techMap);
+  if(names.length===0){
+    listEl.innerHTML = '<div class="empty">暂无</div>'; return;
+  }
+  listEl.innerHTML = names.map(n=>{
+    const t = techMap[n];
+    return `<div class="tech-stat"><span class="tname">${n}</span><span class="tc">${t.count}单</span><span class="tj">提成 ¥${t.commission.toFixed(0)}</span></div>`;
+  }).join('');
+}
+
+// ============ 技师管理 ============
+function renderTechTags(){
+  const box = document.getElementById('techTags');
+  box.innerHTML = DB.techs.map((t,i)=>
+    `<span class="tag">${t}<span class="x" onclick="delTech(${i})">×</span></span>`
+  ).join('') || '<div class="muted">暂无技师，先添加</div>';
+}
+function openTechMgmt(){
+  document.getElementById('techMask').classList.add('show');
+  renderTechTags();
+  document.getElementById('newTechName').focus();
+}
+function closeTechMgmt(){
+  document.getElementById('techMask').classList.remove('show');
+}
+function addTech(){
+  const inp = document.getElementById('newTechName');
+  const name = inp.value.trim();
+  if(!name){ toast('请输入姓名'); return; }
+  DB.techs.push(name);
+  inp.value='';
+  save(); render(); toast('✅ 已添加：'+name);
+}
+function delTech(i){
+  if(!confirm('删除技师「'+DB.techs[i]+'」？')) return;
+  DB.techs.splice(i,1);
+  save(); render(); toast('已删除');
+}
+
+// ============ Toast ============
+let toastTimer;
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ t.style.display='none'; }, 1800);
+}
+
+render();
+</script>
+</body>
+</html>
