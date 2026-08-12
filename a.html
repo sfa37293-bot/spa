@@ -293,26 +293,39 @@ function confirmEditItems(ri,mask){
 }
 function openWalk(){
   const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=250;
-  const techOpts=DB.techs.map(t=>`<option>${t}</option>`).join('');
   const roomOpts=DB.rooms.map(r=>`<option>${r.name}</option>`).join('');
   mask.innerHTML=`<div class="modal"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
     <h3>🚶 走客记录</h3>
-    <div style="color:#888;font-size:13px;margin:4px 0 10px">客人未上钟直接离开，不计营业、无提成，仅记走客。</div>
+    <div style="color:#888;font-size:13px;margin:4px 0 10px">客人未上钟直接离开，不计营业、无提成，仅记走客。带*为必填。</div>
     <div class="field"><label>房间</label><select id="wkRoom">${roomOpts}</select></div>
-    <div class="field"><label>接待技师（选填）</label><select id="wkTech">${techOpts}</select></div>
-    <div class="field"><label>客户来源（选填）</label><select id="wkSrc"><option>未选</option><option>美团</option><option>老客</option><option>散客</option></select></div>
-    <div class="field"><label>走客原因（备注）</label><input id="wkReason" placeholder="如：嫌贵／问价走了／约满等"></div>
+    <div class="field"><label><span style="color:#c62828">* </span>客户来源（必选，单选）</label><div class="projects" id="wkSrcWrap"><div class="proj">美团</div><div class="proj">老客</div><div class="proj">散客</div></div></div>
+    <div class="field"><label><span style="color:#c62828">* </span>试钟技师（必选，可多选）</label><div class="tags" id="wkTechWrap">${DB.techs.map((t,i)=>`<span class="tag2" data-t="${t}" onclick="wkTechPick(this)">${t}</span>`).join('')}</div><div class="hint" id="wkTechHint"></div></div>
+    <div class="field"><label><span style="color:#c62828">* </span>走客原因（必填，备注）</label><input id="wkReason" placeholder="如：嫌贵／约满／试了几位技师都不满意等"></div>
     <div class="btn-row"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">取消</button><button class="btn r" onclick="confirmWalk(this.closest('.modal-mask'))">确认走客</button></div></div>`;
+  // 来源单选
+  const sw=mask.querySelector('#wkSrcWrap'); mask.srcVal='';
+  sw.querySelectorAll('.proj').forEach(el=>{ el.onclick=()=>{ sw.querySelectorAll('.proj').forEach(x=>x.classList.remove('sel')); el.classList.add('sel'); mask.srcVal=el.textContent.trim(); }; });
+  // 技师多选
+  mask.techVals=[];
   document.body.appendChild(mask);
+}
+function wkTechPick(el){
+  el.classList.toggle('on');
+  const mask=el.closest('.modal-mask'); if(!mask)return;
+  mask.techVals=[]; el.closest('#wkTechWrap').querySelectorAll('.tag2.on').forEach(x=>mask.techVals.push(x.textContent.trim()));
+  const h=mask.querySelector('#wkTechHint'); if(h) h.textContent=mask.techVals.length?('已选：'+mask.techVals.join('、')):'⚠️ 请选择试钟技师';
 }
 async function confirmWalk(mask){
   const roomName=(mask.querySelector('#wkRoom')||{}).value||DB.rooms[0].name;
-  const tech=(mask.querySelector('#wkTech')||{}).value||'';
-  const src=(mask.querySelector('#wkSrc')||{}).value||'未选';
-  const reason=(mask.querySelector('#wkReason')||{}).value||'';
+  const src=mask.srcVal||'';
+  const walkTechs=mask.techVals||[];
+  const reason=((mask.querySelector('#wkReason')||{}).value||'').trim();
+  if(!src){ toast('⚠️ 请选择客户来源'); return; }
+  if(!walkTechs.length){ toast('⚠️ 请选择试钟技师'); return; }
+  if(!reason){ toast('⚠️ 请填写走客原因'); return; }
   const endNow=new Date();
   const t=e=>e.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
-  DB.records.push({date:currentBizKey(),time:t(endNow),room:roomName,techs:tech?[tech]:[],total:0,commission:0,origTotal:0,itemCount:1,extraCount:0,startTime:t(endNow),endTime:t(endNow),pay:[],items:[],source:src==='未选'?'':src,isWalk:true,walkReason:reason});
+  DB.records.push({date:currentBizKey(),time:t(endNow),room:roomName,techs:[],walkTechs:walkTechs,total:0,commission:0,origTotal:0,itemCount:1,extraCount:0,startTime:t(endNow),endTime:t(endNow),pay:[],items:[],source:src,isWalk:true,walkReason:reason});
   mask.remove(); await save(); renderRooms(); toast('🚶 已记走客');
 }
 function openReturn(ri){
@@ -410,11 +423,11 @@ function renderRoomTimes(){
           <div style="color:#888">原因：${r.retReason||'--'}（无提成）</div></div>`;
       }
       if(r.isWalk){
-        const wt=(r.techs&&r.techs.length)?r.techs.join('、'):'未填';
+        const wt=(r.walkTechs&&r.walkTechs.length)?r.walkTechs.join('、'):((r.techs&&r.techs.length)?r.techs.join('、'):'未填');
         return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px;color:#9c27b0">
-          <div style="font-weight:600">${i+1}. 🚶 走客 · 接待：${wt}</div>
+          <div style="font-weight:600">${i+1}. 🚶 走客 · 试钟：${wt}</div>
           <div style="color:#9c27b0">🕒 ${r.startTime||'--'}</div>
-          <div style="color:#888">原因：${r.walkReason||'--'}${r.source?('｜来源：'+r.source):''}（未消费）</div></div>`;
+          <div style="color:#888">来源：${r.source||'--'}｜原因：${r.walkReason||'--'}（未消费）</div></div>`;
       }
       let itHtml=(r.items||[]).map((it,ix)=>{
         const techs=it.techs&&it.techs.length?it.techs:(r.techs||[r.tech]);
@@ -491,7 +504,7 @@ function openTraffic(){
   const d=trafficData||{rooms:[],rets:[],walks:[]};
   const rooms=(d.rooms||[]).map((r,i)=>`<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px"><span style="font-weight:600">${i+1}. ${r.room}·${(r.techs||[r.tech]).join('、')}</span><span style="color:#555">${r.startTime||''}->${r.endTime||''} 应收¥${r.origTotal||0}实收¥${r.total||0}</span></div>`).join('')||'<div style="color:#aaa;padding:8px">今日暂无开房</div>';
   const rets=(d.rets||[]).map((r,i)=>`<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px;color:#c62828"><span style="font-weight:600">${i+1}. ↩️退钟 ${r.room}·${(r.techs||[r.tech]).join('、')}</span><span style="color:#555">${r.time||r.startTime||''} 原因：${r.retReason||'--'}</span></div>`).join('')||'<div style="color:#aaa;padding:8px">今日无退钟</div>';
-  const walks=(d.walks||[]).map((r,i)=>`<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px;color:#9c27b0"><span style="font-weight:600">${i+1}. 🚶走客 ${r.room}${(r.techs&&r.techs.length)?('·'+r.techs.join('、')):''}</span><span style="color:#555">${r.time||r.startTime||''} 原因：${r.walkReason||'--'}</span></div>`).join('')||'<div style="color:#aaa;padding:8px">今日无走客</div>';
+  const walks=(d.walks||[]).map((r,i)=>`<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px;color:#9c27b0"><span style="font-weight:600">${i+1}. 🚶走客 ${r.room}${(r.walkTechs&&r.walkTechs.length)?('·试钟:'+r.walkTechs.join('/')):''}</span><span style="color:#555">${r.time||r.startTime||''} 来源：${r.source||'--'} 原因：${r.walkReason||'--'}</span></div>`).join('')||'<div style="color:#aaa;padding:8px">今日无走客</div>';
   const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=270;
   mask.innerHTML=`<div class="modal"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
     <h3>🧑‍🤝‍🧑 总客流详情</h3>
