@@ -63,7 +63,7 @@
       <div style="background:#f5f7fa;border-radius:10px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:800;color:#007aff" id="gTotal">0</div><div style="font-size:11px;color:#888;margin-top:2px">总钟数</div></div>
       <div style="background:#f5f7fa;border-radius:10px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:800;color:#007aff" id="gExtra">0</div><div style="font-size:11px;color:#888;margin-top:2px">加钟数</div></div>
       <div style="background:#f5f7fa;border-radius:10px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:800;color:#007aff" id="gShould">0</div><div style="font-size:11px;color:#888;margin-top:2px">应收</div></div>
-      <div style="background:#f5f7fa;border-radius:10px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:800;color:#007aff" id="gGet">0</div><div style="font-size:11px;color:#888;margin-top:2px">实收</div></div>
+      <div style="background:#e8f0fe;border-radius:10px;padding:12px;text-align:center;cursor:pointer" onclick="openPayChannels()"><div style="font-size:20px;font-weight:800;color:#007aff" id="gGet">0</div><div style="font-size:11px;color:#007aff;margin-top:2px">实收 ▶点击查看渠道</div></div>
       <div style="background:#e8f0fe;border-radius:10px;padding:12px;text-align:center;cursor:pointer" onclick="openTechComm()"><div style="font-size:20px;font-weight:800;color:#007aff" id="gComm">0</div><div style="font-size:11px;color:#007aff;margin-top:2px">技师提成 ▶点击查看</div></div>
     </div>
     <div style="font-size:15px;font-weight:700;margin:16px 0 8px">🕒 房间上下钟明细</div>
@@ -409,6 +409,21 @@ function openTechComm(){
   const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=260;
   mask.innerHTML=`<div class="modal"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
     <h3>👤 技师提成明细</h3>${rows}<div class="btn-row"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
+  document.body.appendChild(mask);
+}
+function openPayChannels(){
+  ensureDB();
+  const cmap={现金:0,扫码:0,美团:0};
+  (DB.records||[]).filter(r=>r.date===currentBizKey() && !r.isReturn).forEach(r=>{
+    (r.pay||[]).forEach(p=>{
+      const m=String(p).match(/^(.+?)¥(\d+)/);
+      if(m){ const ch=m[1]; const amt=parseFloat(m[2]); if(cmap[ch]!==undefined) cmap[ch]+=amt; }
+    });
+  });
+  const rows=['现金','扫码','美团'].map(ch=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 6px;border-bottom:1px solid #f0f0f0;font-size:14px"><span style="font-weight:600;flex:1">${ch}</span><span style="color:#007aff;font-weight:700">¥${cmap[ch]}</span></div>`).join('');
+  const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=260;
+  mask.innerHTML=`<div class="modal"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
+    <h3>💳 收款渠道统计</h3>${rows}<div class="btn-row"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
   document.body.appendChild(mask);
 }
 function renderTechTags(){
