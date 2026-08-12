@@ -108,7 +108,7 @@ function renderRooms(rooms){
 function renderStats(records){
   records=records||[];
   const today=currentBizKey();
-  const todays=records.filter(r=>r.date===today);
+  const todays=records.filter(r=>r.date===today && !r.isReturn);
   const totalClocks=todays.reduce((s,r)=>s+(r.itemCount||1),0);
   const extraClocks=todays.reduce((s,r)=>s+(r.extraCount||0),0);
   const should=todays.reduce((s,r)=>s+(r.origTotal||r.total||0),0);
@@ -134,16 +134,25 @@ function renderRoomTimes(records,rooms){
   let html='';
   order.forEach(rn=>{
     const rows=todays.filter(r=>r.room===rn);
-    html += `<div class="ts" style="font-weight:700"><span>${rn}</span><span>${rows.length} 单</span></div>`;
+    const retCount=rows.filter(r=>r.isReturn).length;
+    html += `<div class="ts" style="font-weight:700"><span>${rn}</span><span>${rows.length}单${retCount?'（退'+retCount+'）':''}</span></div>`;
     html += rows.length
       ? `<div style="background:#f9fafb;border-radius:8px;padding:5px 8px;margin-bottom:6px">`+rows.map(r=>{
+          if(r.isReturn){
+            return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px;color:#c62828">
+              <div style="font-weight:600">↩️ 退钟 · ${r.tech}</div>
+              <div style="color:#c62828">${r.startTime||'--'} 上 → ${r.endTime||'--'}（无提成）</div>
+              <div style="color:#888">原因：${r.retReason||'--'}</div>
+            </div>`;
+          }
           const items=(r.items||[]).map(it=>`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元`).join('、')||`${r.itemCount||1}钟`;
           const pay=(r.pay&&r.pay.length)?r.pay.join('/'):'--';
+          const note=r.note?`<div style="color:#888">备注：${r.note}</div>`:'';
           return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px">
             <div style="font-weight:600;color:#333">技师：${r.tech}</div>
             <div style="color:#555">${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</div>
             <div style="color:#555">项目：${items}｜结账：${pay}</div>
-            <div style="color:#888">应收 ¥${r.origTotal||0} → 实收 ¥${r.total||0}（提成 ¥${r.commission||0}）</div>
+            <div style="color:#888">应收 ¥${r.origTotal||0} → 实收 ¥${r.total||0}（提成 ¥${r.commission||0}）</div>${note}
           </div>`;
         }).join('')+`</div>`
       : '<div style="color:#aaa;font-size:12px;padding:3px 0">今日暂无</div>';
@@ -158,7 +167,9 @@ function renderWeek(records){
   for(let i=6;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i); days.push(bizKeyFromDate(d)); }
   let html='';
   days.forEach(key=>{
-    const todays=records.filter(r=>r.date===key);
+    const todaysAll=records.filter(r=>r.date===key);
+    const todays=todaysAll.filter(r=>!r.isReturn);
+    const retCount=todaysAll.length-todays.length;
     const total=todays.reduce((s,r)=>s+(r.itemCount||1),0);
     const should=todays.reduce((s,r)=>s+(r.origTotal||r.total||0),0);
     const get=todays.reduce((s,r)=>s+(r.total||0),0);
@@ -168,11 +179,11 @@ function renderWeek(records){
     html+=`
       <div class="ts" style="cursor:pointer;${isToday?'background:#e8f0fe':''}" onclick="toggleDay('${safeKey}')">
         <span class="tn">${key.slice(5)}${isToday?'（今）':''}</span>
-        <span>${todays.length}单·${total}钟</span>
+        <span>${todays.length}单·${total}钟${retCount?'·退'+retCount:''}</span>
         <span style="font-size:11px;color:#e65100;font-weight:700">应¥${should}</span>
         <span style="color:#2e7d32;font-weight:700">实¥${get}</span>
       </div>
-      <div id="wk_${safeKey}" style="display:none;background:#f9fafb;border-radius:8px;padding:6px 8px;margin-bottom:6px;font-size:12px">${renderDayDetail(todays)}</div>`;
+      <div id="wk_${safeKey}" style="display:none;background:#f9fafb;border-radius:8px;padding:6px 8px;margin-bottom:6px;font-size:12px">${renderDayDetail(todaysAll)}</div>`;
   });
   document.getElementById('weekList').innerHTML=html||'<div style="color:#aaa;padding:10px">暂无</div>';
 }
@@ -182,17 +193,27 @@ function toggleDay(safeKey){
 }
 function renderDayDetail(rows){
   if(!rows.length) return '<div style="color:#aaa">当日暂无记录</div>';
-  const sumShould=rows.reduce((s,r)=>s+(r.origTotal||r.total||0),0);
-  const sumGet=rows.reduce((s,r)=>s+(r.total||0),0);
-  const sumComm=rows.reduce((s,r)=>s+(r.commission||0),0);
-  let h=`<div style="font-weight:700;color:#333;padding:3px 0">应收 ¥${sumShould} ｜ 实收 ¥${sumGet} ｜ 提成 ¥${sumComm}</div>`;
+  const norm=rows.filter(r=>!r.isReturn);
+  const rets=rows.filter(r=>r.isReturn);
+  const sumShould=norm.reduce((s,r)=>s+(r.origTotal||r.total||0),0);
+  const sumGet=norm.reduce((s,r)=>s+(r.total||0),0);
+  const sumComm=norm.reduce((s,r)=>s+(r.commission||0),0);
+  let h=`<div style="font-weight:700;color:#333;padding:3px 0">应收 ¥${sumShould} ｜ 实收 ¥${sumGet} ｜ 提成 ¥${sumComm}${rets.length?' ｜ 退钟 '+rets.length+'单':''}</div>`;
   h+=rows.map(r=>{
     const items=(r.items||[]).map(it=>`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元`).join('、')||`${r.itemCount||1}钟`;
     const pay=(r.pay&&r.pay.length)?r.pay.join('/'):'--';
+    if(r.isReturn){
+      return `<div style="padding:4px 0;border-bottom:1px dashed #e5e5ea;color:#c62828">
+        <div style="font-weight:600">↩️ 退钟 · ${r.room}·${r.tech}</div>
+        <div style="color:#c62828">${r.startTime||'--'}上→${r.endTime||'--'}下（无提成）</div>
+        <div style="color:#888">原因：${r.retReason||'--'}</div>
+      </div>`;
+    }
+    const note=r.note?`<div style="color:#888">备注：${r.note}</div>`:'';
     return `<div style="padding:4px 0;border-bottom:1px dashed #e5e5ea">
       <div style="font-weight:600">${r.room}·${r.tech}</div>
       <div style="color:#555">${r.startTime||'--'}上→${r.endTime||'--'}下 ｜ ${items}</div>
-      <div style="color:#555">结账：${pay} ｜ 应收¥${r.origTotal||0}→实收¥${r.total||0}</div>
+      <div style="color:#555">结账：${pay} ｜ 应收¥${r.origTotal||0}→实收¥${r.total||0}</div>${note}
     </div>`;
   }).join('');
   return h;
