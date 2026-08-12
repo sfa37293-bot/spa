@@ -135,6 +135,7 @@ function renderRooms(){
       b.innerHTML=`
         <div class="field"><label>选择技师（双人798需选2人）</label><div class="tags" id="tk${ri}">${DB.techs.map((t,i)=>`<span class="tag2" data-i="${i}" onclick="toggleTechPick(${ri},${i})">${t}</span>`).join('')}</div><div class="hint" id="th${ri}"></div></div>
         <div class="field"><label>项目</label><div class="projects" id="pw${ri}"></div></div>
+        <div class="field"><label>点钟（指名技师+20提成）</label><div style="display:flex;align-items:center;justify-content:space-between;background:#fafafa;border:1px solid #ddd;border-radius:10px;padding:11px 14px"><span style="font-size:14px">是否点钟</span><span class="tag2" id="nm${ri}" onclick="toggleNamed(${ri})" style="padding:8px 22px">否</span></div><div class="hint" id="nh${ri}"></div></div>
         <div class="btn-row"><button class="btn p" onclick="clockIn(${ri})">🔔 上钟</button></div>`;
       const pw=b.querySelector('#pw'+ri);
       PROJS.forEach(p=>{const el=document.createElement('div');el.className='proj';el.innerHTML=`<span>${p}元${isPair(p)?'（双人）':''}</span><span class="price">提成 ${isPair(p)?(PAIR_COMMISSION_PER+'/人'):(COMMISSION[p]+'元')}</span>`;el.onclick=()=>{pw.querySelectorAll('.proj').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');pw.dataset.sel=p;updateTechHint(ri);};pw.appendChild(el);});
@@ -165,6 +166,15 @@ function toggleTechPick(ri,i){
   el.classList.toggle('on');
   updateTechHint(ri);
 }
+let namedFlags={};
+function toggleNamed(ri){
+  const el=document.getElementById('nm'+ri); if(!el)return;
+  namedFlags[ri]=!namedFlags[ri];
+  el.classList.toggle('on');
+  el.textContent = namedFlags[ri] ? '是' : '否';
+  const h=document.getElementById('nh'+ri);
+  if(h) h.textContent = namedFlags[ri] ? '✅ 主技师提成+20' : '';
+}
 function getPickedTechs(ri){
   const h=document.getElementById('tk'+ri); if(!h)return[];
   const out=[]; h.querySelectorAll('.tag2.on').forEach(el=>out.push(el.textContent)); return out;
@@ -190,7 +200,10 @@ async function clockIn(ri){
   if(isPair(selPrice) && picked.length !== 2){ toast('⚠️ 双人项目需选2名技师'); return; }
   if(!isPair(selPrice) && picked.length !== 1){ toast('⚠️ 请选择1名技师'); return; }
   DB.rooms[ri].status='busy';
-  DB.rooms[ri].cur={techs:picked,startTime:new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),items:[{price:selPrice,techs:picked.slice()}]};
+  const named=!!namedFlags[ri];
+  const firstTech=picked[0]||'';
+  DB.rooms[ri].cur={techs:picked,startTime:new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),items:[{price:selPrice,techs:picked.slice()}],named:named,namedTech:named?firstTech:''};
+  namedFlags[ri]=false;
   await save(); renderRooms(); toast('✅ 上钟成功');
 }
 function toggleClockTech(ri,i){
@@ -285,12 +298,14 @@ async function confirmOut(ri,mask){
   const mt=parseFloat(mask.querySelector('#payMT').value)||0;
   if(Math.abs((cash+scan+mt)-total)>0.01){ toast('⚠️ 组合金额合计需等于 '+total+'元'); return; }
   let commission=0; cur.items.forEach(it=>{commission+=itemTotalComm(it.price);});
+  const named=!!cur.named; const namedTech=cur.namedTech||'';
+  if(named) commission += 20;
   let origTotal=0; cur.items.forEach(it=>{origTotal+=it.price;});
   const endNow=new Date();
   const payArr=[]; if(cash>0)payArr.push('现金¥'+cash); if(scan>0)payArr.push('扫码¥'+scan); if(mt>0)payArr.push('美团¥'+mt);
   const itemsDetail=cur.items.map((it,i)=>({orig:it.price, fin:fin[i]||it.price, techs:it.techs||[]}));
   const note=(mask.querySelector('#settleNote')||{}).value||'';
-  DB.records.push({date:currentBizKey(),time:new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}),room:DB.rooms[ri].name,techs:(cur.techs||[cur.tech]),total:total,commission:commission,origTotal:origTotal,itemCount:cur.items.length,extraCount:Math.max(0,cur.items.length-1),startTime:cur.startTime||'',endTime:endNow.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),pay:payArr,items:itemsDetail,note:note});
+  DB.records.push({date:currentBizKey(),time:new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}),room:DB.rooms[ri].name,techs:(cur.techs||[cur.tech]),total:total,commission:commission,origTotal:origTotal,itemCount:cur.items.length,extraCount:Math.max(0,cur.items.length-1),startTime:cur.startTime||'',endTime:endNow.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),pay:payArr,items:itemsDetail,note:note,named:named,namedTech:namedTech});
   DB.rooms[ri].status='free'; DB.rooms[ri].cur=null;
   mask.remove(); await save(); renderRooms(); toast('✅ 已结算 共 ¥'+total);
 }
@@ -325,9 +340,10 @@ function renderRoomTimes(){
       }).join('')||`1. ${r.itemCount||1}钟`;
       const pay=(r.pay&&r.pay.length)?r.pay.join('/'):'--';
       const note=r.note?`<div style="color:#888">备注：${r.note}</div>`:'';
+      const namedTxt=(r.named&&r.namedTech)?`<div style="color:#e65100">⭐ 点钟：${r.namedTech} +20</div>`:'';
       return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px;color:#333">
         <div style="font-weight:600">${i+1}. 技师：${(r.techs||[r.tech]).join('、')}</div>
-        <div style="color:#555">🕒 ${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</div>${itHtml}
+        <div style="color:#555">🕒 ${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</div>${itHtml}${namedTxt}
         <div style="color:#555">结账：${pay||'--'}</div>
         <div style="color:#888">应收 ¥${r.origTotal||0} → 实收 ¥${r.total||0}（提成合计 ¥${r.commission||0}）</div>${note}</div>`;
     }).join('');
@@ -358,6 +374,7 @@ function renderStats(){
       const per=techs.length?Math.round(comm/techs.length):comm;
       techs.forEach(tn=>{ if(!map[tn])map[tn]={c:0,t:0}; map[tn].c+=1; map[tn].t+=per; });
     });
+    if(r.named && r.namedTech){ if(!map[r.namedTech])map[r.namedTech]={c:0,t:0}; map[r.namedTech].t+=20; }
   });
   techCommMap=map;
 }
