@@ -58,8 +58,8 @@
     <div class="gt">📊 营业汇总</div>
     <div class="grid">
       <div class="box" style="cursor:pointer;background:#e8f0fe" onclick="openTraffic()"><div class="n" id="gTraffic">0</div><div class="l" style="color:#007aff">总客流 ▶</div></div>
-      <div class="box"><div class="n" id="gTotal">0</div><div class="l">总钟数</div></div>
-      <div class="box"><div class="n" id="gExtra">0</div><div class="l">加钟数</div></div>
+      <div class="box" style="cursor:pointer;background:#e8f0fe" onclick="openClocks()"><div class="n" id="gTotal">0</div><div class="l" style="color:#007aff">总钟数 ▶</div></div>
+      <div class="box" style="cursor:pointer;background:#e8f0fe" onclick="openExtras()"><div class="n" id="gExtra">0</div><div class="l" style="color:#007aff">加钟数 ▶</div></div>
       <div class="box"><div class="n" id="gShould">0</div><div class="l">应收</div></div>
       <div class="box" style="cursor:pointer;background:#e8f0fe" onclick="openPayChannels()"><div class="n" id="gGet">0</div><div class="l" style="color:#007aff">实收 ▶渠道</div></div>
       <div class="box" style="cursor:pointer;background:#e8f0fe" onclick="openTechComm()"><div class="n" id="gComm">0</div><div class="l" style="color:#007aff">技师提成 ▶</div></div>
@@ -165,6 +165,29 @@ function openTraffic(){
     <div style="font-size:13px;font-weight:700;color:#c62828;margin:8px 0 4px">↩️ 退钟（${(d.rets||[]).length}）</div>${rets}
     <div style="font-size:13px;font-weight:700;color:#9c27b0;margin:8px 0 4px">🚶 走客（${(d.walks||[]).length}）</div>${walks}
     <div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
+  document.body.appendChild(mask);
+}
+function openClocks(){
+  const d=viewTraffic||{rooms:[]};
+  const rooms=d.rooms||[];
+  let rows='';
+  rooms.forEach((r,idx)=>{
+    const items=(r.items||[]).map((it,ix)=>`<div style="color:#555">${ix+1}. ¥${it.orig}${it.fin!==it.orig?('→'+it.fin):''}${it.orig===798?'（双人）':''}${(it.techs&&it.techs.length)?'｜'+it.techs.join('/'):''}</div>`).join('')||'<div style="color:#aaa">--</div>';
+    rows+=`<div style="padding:6px 0;border-bottom:1px dashed #e5e5ea;font-size:12px"><div style="font-weight:600">${idx+1}. ${r.room}·${(r.techs||[r.tech]).join('、')}（${r.startTime||''}）</div>${items}</div>`;
+  });
+  const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=270;
+  mask.innerHTML=`<div class="modal" style="max-width:440px"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button><h3>🕒 总钟数明细（${rooms.length}单）</h3>${rows||'<div style="color:#aaa;text-align:center;padding:12px">今日暂无</div>'}<div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
+  document.body.appendChild(mask);
+}
+function openExtras(){
+  const d=viewTraffic||{rooms:[]};
+  const rooms=d.rooms||[];
+  let rows='';
+  rooms.forEach(r=>{
+    (r.items||[]).forEach((it,idx)=>{ if(idx===0) return; rows+=`<div style="padding:6px 0;border-bottom:1px dashed #e5e5ea;font-size:12px"><span style="font-weight:600">· ${r.room} ${(r.techs||[r.tech]).join('、')}</span><span style="color:#555">加钟¥${it.orig}${it.fin!==it.orig?('→'+it.fin):''}${(it.techs&&it.techs.length)?'｜'+it.techs.join('/'):''}（${r.startTime||''}）</span></div>`; });
+  });
+  const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=270;
+  mask.innerHTML=`<div class="modal" style="max-width:440px"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button><h3>➕ 加钟数明细</h3>${rows||'<div style="color:#aaa;text-align:center;padding:12px">今日无加钟</div>'}<div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
   document.body.appendChild(mask);
 }
 function openTechComm(){
