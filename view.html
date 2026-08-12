@@ -60,6 +60,10 @@
     <div class="gt">👤 技师提成</div>
     <div id="techList"></div>
   </div>
+  <div class="panel">
+    <div class="gt">🕒 房间上下钟时间</div>
+    <div id="roomTimes"></div>
+  </div>
   <div class="upd" id="updInfo">连接中…</div>
   <div class="foot">实时同步 · 数据来自云端</div>
 </div>
@@ -114,12 +118,29 @@ function renderStats(records){
     : '<div style="text-align:center;color:#aaa;padding:10px">暂无记录</div>';
 }
 
+function renderRoomTimes(records,rooms){
+  records=records||[]; rooms=rooms||[];
+  const today=dc(new Date());
+  const todays=records.filter(r=>r.date===today);
+  const order=rooms.map(r=>r.name);
+  let html='';
+  order.forEach(rn=>{
+    const rows=todays.filter(r=>r.room===rn);
+    html += `<div class="ts" style="font-weight:700"><span>${rn}</span><span>${rows.length} 次</span></div>`;
+    html += rows.length
+      ? `<div style="background:#f9fafb;border-radius:8px;padding:5px 8px;margin-bottom:6px">`+rows.map(r=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;color:#555"><span>${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</span></div>`).join('')+`</div>`
+      : '<div style="color:#aaa;font-size:12px;padding:3px 0">今日暂无</div>';
+  });
+  document.getElementById('roomTimes').innerHTML = html || '<div style="color:#aaa;padding:10px">暂无数据</div>';
+}
+
 async function tick(){
   try{
     const st = await readNode('');
     if(!st || !st.rooms){ return; }
     renderRooms(st.rooms);
     renderStats(st.records);
+    renderRoomTimes(st.records, st.rooms);
     document.getElementById('statDot').className='live'; document.getElementById('statDot').textContent='● 实时';
     document.getElementById('updInfo').textContent='更新于 '+fmtClock();
   }catch(e){
