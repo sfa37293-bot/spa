@@ -185,6 +185,11 @@
 <script>
 // ============ 数据模型 ============
 const PROJECTS = [198, 298, 398, 498];
+// 固定提成：每个价位的技师提成
+const COMMISSION = {198:90, 298:140, 398:190, 498:240};
+// 支付方式
+const PAY_TYPES = ['扫码','现金','美团'];
+const commissionOf = (price)=> COMMISSION[price] || 0;
 const DB_KEY = 'spa_order_db_v1';
 
 const defaultDB = {
@@ -193,7 +198,7 @@ const defaultDB = {
     { id: 0, name: '房间 1', status: 'free', cur: null },  // cur: 上钟数据
     { id: 1, name: '房间 2', status: 'free', cur: null }
   ],
-  records: []  // 已完成订单 {time, room, tech, items:[{price}], total, commission}
+  records: []  // 已完成订单 {time, room, tech, items:[{price}], total, commission, pay:[]}
 };
 
 let DB = load();
@@ -269,7 +274,7 @@ function renderRooms(){
       PROJECTS.forEach(p=>{
         const b = document.createElement('div');
         b.className='proj';
-        b.innerHTML = `<span>${p}元</span><span class="price">提成 ${p*0.5}元</span>`;
+        b.innerHTML = `<span>${p}元</span><span class="price">提成 ${commissionOf(p)}元</span>`;
         b.onclick = ()=>{ pw.querySelectorAll('.proj').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); pw.dataset.sel=p; };
         pw.appendChild(b);
       });
@@ -296,7 +301,7 @@ function renderRooms(){
       PROJECTS.forEach(p=>{
         const b = document.createElement('div');
         b.className='proj';
-        b.innerHTML = `<span>${p}元</span><span class="price">提成 ${p*0.5}元</span>`;
+        b.innerHTML = `<span>${p}元</span><span class="price">提成 ${commissionOf(p)}元</span>`;
         b.onclick = ()=>{ pw.querySelectorAll('.proj').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); pw.dataset.sel=p; };
         pw.appendChild(b);
       });
@@ -345,15 +350,16 @@ function openSettle(idx){
   mask.className = 'modal-mask show';
   mask.style.zIndex = 250;
 
-  let itemsHtml = cur.items.map((it,i)=>
-    `<div class="settle-item">
+  let itemsHtml = cur.items.map((it,i)=>{
+    const c = commissionOf(it.price);
+    return `<div class="settle-item">
       <div class="info">
         <div class="pname">项目 ${i+1}（原价 ${it.price}元）</div>
-        <div class="meta">原提成 ${it.price*0.5}元 · 此单提成已按原价锁定</div>
+        <div class="meta">提成 ${c}元</div>
       </div>
       <input class="price-input" type="number" value="${it.price}" data-idx="${i}">
-    </div>`
-  ).join('');
+    </div>`;
+  }).join('');
 
   mask.innerHTML = `
     <div class="modal" style="max-width:440px">
@@ -361,6 +367,8 @@ function openSettle(idx){
       <h3>🕒 下钟结算 · ${cur.tech}</h3>
       <div class="muted" style="margin-bottom:10px">技师：${cur.tech} ｜ 上钟：${cur.startTime}</div>
       <div class="settle-list">${itemsHtml}</div>
+      <div class="section-title">💳 支付方式（可多选/组合结算）</div>
+      <div id="payWrap" class="projects"></div>
       <div class="total-bar">
         <div>结算总额<br><span class="tip">修改下方价位可做折扣</span></div>
         <div><span id="settleTotalLab">—</span></div>
@@ -371,6 +379,21 @@ function openSettle(idx){
       </div>
     </div>
   `;
+
+  // 支付方式多选按钮
+  mask.paySel = [];
+  const pw = mask.querySelector('#payWrap');
+  PAY_TYPES.forEach(pt=>{
+    const b = document.createElement('div');
+    b.className='proj'; b.dataset.pay=pt;
+    b.innerHTML = `<span>${pt}</span>`;
+    b.onclick = ()=>{
+      if(b.classList.contains('sel')){ b.classList.remove('sel'); mask.paySel = mask.paySel.filter(x=>x!==pt); }
+      else { b.classList.add('sel'); mask.paySel.push(pt); }
+      calcTotal(mask, cur);
+    };
+    pw.appendChild(b);
+  });
 
   mask.querySelector('.settle-list').addEventListener('input', ()=>{ calcTotal(mask, cur); });
   calcTotal(mask, cur);
@@ -385,9 +408,10 @@ function calcTotal(mask, cur){
     if(isNaN(v) || v<0) v = 0;
     total += v;
   });
-  // 提成按原价
-  const comm = cur.items.reduce((s,it)=> s + it.price*0.5, 0);
-  mask.querySelector('#settleTotalLab').innerHTML = `¥${total}<br><span class="tip" style="color:#4caf50">提成(原价50%) ¥${comm}</span>`;
+  // 提成按固定标准（每个价位对应固定提成）
+  let comm = 0;
+  cur.items.forEach(it=>{ comm += commissionOf(it.price); });
+  mask.querySelector('#settleTotalLab').innerHTML = `¥${total}<br><span class="tip" style="color:#4caf50">技师提成 ¥${comm}</span>`;
 }
 
 function confirmSettle(idx, mask){
@@ -402,8 +426,10 @@ function confirmSettle(idx, mask){
     finalItems.push({ price: v });
     total += v;
   });
-  // 提成按原价
-  const commission = cur.items.reduce((s,it)=> s + it.price*0.5, 0);
+  // 提成按固定标准（不随折扣变化）
+  let commission = 0;
+  cur.items.forEach(it=>{ commission += commissionOf(it.price); });
+  const pay = (mask.paySel && mask.paySel.length) ? mask.paySel.slice() : [];
 
   DB.records.push({
     date: dateKey(new Date()),
@@ -412,6 +438,7 @@ function confirmSettle(idx, mask){
     tech: cur.tech,
     total: total,
     commission: commission,
+    pay: pay,
     origTotal: cur.items.reduce((s,it)=>s+it.price,0),
     itemCount: cur.items.length,             // 总钟数（含加钟）
     extraCount: Math.max(0, cur.items.length-1)  // 加钟数（首钟不算）
