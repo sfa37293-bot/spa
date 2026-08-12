@@ -61,6 +61,7 @@
   <div style="background:#fff;border-radius:14px;padding:16px;margin-top:14px;box-shadow:0 1px 6px rgba(0,0,0,.08)">
     <div style="font-size:15px;font-weight:700;margin-bottom:10px">📊 今日营业汇总</div>
     <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
+      <div style="background:#e8f0fe;border-radius:10px;padding:12px;text-align:center;cursor:pointer" onclick="openTraffic()"><div style="font-size:20px;font-weight:800;color:#007aff" id="gTraffic">0</div><div style="font-size:11px;color:#007aff;margin-top:2px">总客流 ▶查看</div></div>
       <div style="background:#f5f7fa;border-radius:10px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:800;color:#007aff" id="gTotal">0</div><div style="font-size:11px;color:#888;margin-top:2px">总钟数</div></div>
       <div style="background:#f5f7fa;border-radius:10px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:800;color:#007aff" id="gExtra">0</div><div style="font-size:11px;color:#888;margin-top:2px">加钟数</div></div>
       <div style="background:#f5f7fa;border-radius:10px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:800;color:#007aff" id="gShould">0</div><div style="font-size:11px;color:#888;margin-top:2px">应收</div></div>
@@ -419,6 +420,12 @@ function renderStats(){
   document.getElementById('gShould').textContent=should;
   document.getElementById('gGet').textContent=get;
   document.getElementById('gComm').textContent=comm;
+  // 总客流 = 开房 + 退钟 + 走客
+  const rets=todayAll.filter(r=>r.isReturn);
+  const walks=todayAll.filter(r=>r.isWalk);
+  const roomsCount=todays.length;
+  trafficData={rooms:todays,rets:rets,walks:walks};
+  document.getElementById('gTraffic').textContent=(roomsCount+rets.length+walks.length);
   // 技师提成明细：按每单的 techs 与 items 分配 (存全局供弹窗显示)
   const map={};
   todays.forEach(r=>{
@@ -433,6 +440,21 @@ function renderStats(){
   techCommMap=map;
 }
 let techCommMap={};
+let trafficData={rooms:[],rets:[],walks:[]};
+function openTraffic(){
+  const d=trafficData||{rooms:[],rets:[],walks:[]};
+  const rooms=(d.rooms||[]).map((r,i)=>`<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px"><span style="font-weight:600">${i+1}. ${r.room}·${(r.techs||[r.tech]).join('、')}</span><span style="color:#555">${r.startTime||''}->${r.endTime||''} 应收¥${r.origTotal||0}实收¥${r.total||0}</span></div>`).join('')||'<div style="color:#aaa;padding:8px">今日暂无开房</div>';
+  const rets=(d.rets||[]).map((r,i)=>`<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px;color:#c62828"><span style="font-weight:600">${i+1}. ↩️退钟 ${r.room}·${(r.techs||[r.tech]).join('、')}</span><span style="color:#555">${r.time||r.startTime||''} 原因：${r.retReason||'--'}</span></div>`).join('')||'<div style="color:#aaa;padding:8px">今日无退钟</div>';
+  const walks=(d.walks||[]).map((r,i)=>`<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px;color:#9c27b0"><span style="font-weight:600">${i+1}. 🚶走客 ${r.room}${(r.techs&&r.techs.length)?('·'+r.techs.join('、')):''}</span><span style="color:#555">${r.time||r.startTime||''} 原因：${r.walkReason||'--'}</span></div>`).join('')||'<div style="color:#aaa;padding:8px">今日无走客</div>';
+  const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=270;
+  mask.innerHTML=`<div class="modal"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
+    <h3>🧑‍🤝‍🧑 总客流详情</h3>
+    <div class="sec" style="font-size:13px;font-weight:700;color:#333">🛏️ 总开房（${(d.rooms||[]).length}）</div>${rooms}
+    <div class="sec" style="font-size:13px;font-weight:700;color:#c62828;margin-top:10px">↩️ 退钟（${(d.rets||[]).length}）</div>${rets}
+    <div class="sec" style="font-size:13px;font-weight:700;color:#9c27b0;margin-top:10px">🚶 走客（${(d.walks||[]).length}）</div>${walks}
+    <div class="btn-row"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
+  document.body.appendChild(mask);
+}
 function openTechComm(){
   const names=Object.keys(techCommMap);
   const rows=names.length
