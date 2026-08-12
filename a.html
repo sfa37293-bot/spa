@@ -114,6 +114,9 @@ function ensureDB(){
   if(!DB || !DB.rooms){
     DB={techs:['小丽','小美'],rooms:[{id:0,name:'房间 1',status:'free',cur:null},{id:1,name:'房间 2',status:'free',cur:null}],records:[]};
   }
+  if(!Array.isArray(DB.techs)) DB.techs=['小丽','小美'];
+  if(!Array.isArray(DB.records)) DB.records=[];
+  if(!Array.isArray(DB.rooms)) DB.rooms=[{id:0,name:'房间 1',status:'free',cur:null},{id:1,name:'房间 2',status:'free',cur:null}];
 }
 
 async function init(){
