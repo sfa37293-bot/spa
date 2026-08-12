@@ -148,7 +148,7 @@ function renderRooms(){
           <div class="line"><span class="k">上钟</span><span class="v">${cur.startTime}</span></div>${items}
         </div>
         <div class="sec">加钟（可选择技师）</div>
-        <div class="field"><label>加钟技师</label><select id="ct${ri}">${DB.techs.map(t=>`<option>${t}</option>`).join('')}</select></div>
+        <div class="field"><label>加钟技师（双人798需选2人）</label><div class="tags" id="ck${ri}">${DB.techs.map((t,i)=>`<span class="tag2" data-i="${i}" onclick="toggleClockTech(${ri},${i})">${t}</span>`).join('')}</div><div class="hint" id="ch${ri}"></div></div>
         <div class="projects" id="pw${ri}"></div>
         <div class="btn-row"><button class="btn a" onclick="addClock(${ri})">加钟</button><button class="btn r" onclick="openSettle(${ri})">下钟</button></div>
         <div class="btn-row"><button class="btn gr" onclick="openReturn(${ri})">↩️ 退钟</button></div>`;
@@ -193,14 +193,34 @@ async function clockIn(ri){
   DB.rooms[ri].cur={techs:picked,startTime:new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),items:[{price:selPrice,techs:picked.slice()}]};
   await save(); renderRooms(); toast('✅ 上钟成功');
 }
+function toggleClockTech(ri,i){
+  const h=document.getElementById('ck'+ri); if(!h)return;
+  const el=h.querySelectorAll('.tag2')[i]; if(!el)return;
+  el.classList.toggle('on'); updateClockHint(ri);
+}
+function getClockTechs(ri){
+  const h=document.getElementById('ck'+ri); if(!h)return[];
+  const out=[]; h.querySelectorAll('.tag2.on').forEach(el=>out.push(el.textContent)); return out;
+}
+function updateClockHint(ri){
+  const h=document.getElementById('ch'+ri); if(!h)return;
+  const pw=document.getElementById('pw'+ri); const sel=pw?pw.dataset.sel:null;
+  const picked=getClockTechs(ri);
+  const pair = sel && isPair(parseInt(String(sel).replace('pair:','')||sel));
+  if(pair){ h.textContent = picked.length===2 ? '✅ 已选2人' : (picked.length<2?'⚠️ 双人项目需选2名技师':'⚠️ 双人项目只需2人'); }
+  else { h.textContent = picked.length===1 ? '' : '请选择1名技师（双人项目选2人）'; }
+}
 async function addClock(ri){
   const pw=document.getElementById('pw'+ri); const rawSel=pw.dataset.sel;
   const selPrice=parseInt(String(rawSel).replace('pair:',''));
   if(!rawSel){toast('请先选要加的项目');return;}
-  const selTech=document.getElementById('ct'+ri).value;
-  let techs;
-  if(isPair(selPrice)){ techs=[selTech]; } else { techs=[selTech]; }
-  DB.rooms[ri].cur.items.push({price:selPrice,techs:techs});
+  const picked=getClockTechs(ri);
+  if(isPair(selPrice)){
+    if(picked.length!==2){ toast('⚠️ 双人项目需选2名技师'); return; }
+  } else {
+    if(picked.length!==1){ toast('⚠️ 请选择1名技师'); return; }
+  }
+  DB.rooms[ri].cur.items.push({price:selPrice,techs:picked.slice()});
   await save(); renderRooms(); toast('✅ 已加钟');
 }
 function openReturn(ri){
