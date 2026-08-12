@@ -157,7 +157,8 @@ function renderRooms(){
           <div class="line"><span class="k">上钟</span><span class="v">${cur.startTime}</span></div>${items}
         </div>
         <div class="sec">加钟</div><div class="projects" id="pw${ri}"></div>
-        <div class="btn-row"><button class="btn a" onclick="addClock(${ri})">加钟</button><button class="btn r" onclick="openSettle(${ri})">下钟</button></div>`;
+        <div class="btn-row"><button class="btn a" onclick="addClock(${ri})">加钟</button><button class="btn r" onclick="openSettle(${ri})">下钟</button></div>
+        <div class="btn-row"><button class="btn gr" onclick="openReturn(${ri})">↩️ 退钟</button></div>`;
       const pw=b.querySelector('#pw'+ri);
       PROJS.forEach(p=>{const el=document.createElement('div');el.className='proj';el.innerHTML=`<span>${p}元</span>`;el.onclick=()=>{pw.querySelectorAll('.proj').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');pw.dataset.sel=p;};pw.appendChild(el);});
     }
@@ -181,6 +182,24 @@ async function addClock(ri){
   DB.rooms[ri].cur.items.push({price:parseInt(sel)});
   await save(); renderRooms(); toast('✅ 已加钟');
 }
+function openReturn(ri){
+  const cur=DB.rooms[ri].cur;
+  const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=250;
+  mask.innerHTML=`<div class="modal"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
+    <h3>↩️ 退钟确认 · ${cur.tech}</h3>
+    <div style="color:#888;font-size:13px;margin:4px 0 10px">技师无提成，此单不记入营业，将记为退钟。</div>
+    <div class="field"><label>退钟原因（备注）</label><input id="retReason" placeholder="如：客人临时有事／不满／离开等"></div>
+    <div class="btn-row"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">取消</button><button class="btn r" onclick="confirmReturn(${ri},this.closest('.modal-mask'))">确认退钟</button></div></div>`;
+  document.body.appendChild(mask);
+}
+async function confirmReturn(ri,mask){
+  const cur=DB.rooms[ri].cur;
+  const reason=(mask.querySelector('#retReason')||{}).value||'';
+  const endNow=new Date();
+  DB.records.push({date:currentBizKey(),time:new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}),room:DB.rooms[ri].name,tech:cur.tech,total:0,commission:0,origTotal:0,itemCount:1,extraCount:0,startTime:cur.startTime||'',endTime:endNow.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),pay:[],items:cur.items.map(it=>({orig:it.price,fin:0})),isReturn:true,retReason:reason});
+  DB.rooms[ri].status='free'; DB.rooms[ri].cur=null;
+  mask.remove(); await save(); renderRooms(); toast('↩️ 已退钟');
+}
 function openSettle(ri){
   const cur=DB.rooms[ri].cur;
   const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=250;
@@ -195,6 +214,7 @@ function openSettle(ri){
     <div class="settle-item"><div class="info"><div class="pname">美团</div></div><input id="payMT" type="number" value="0"></div>
     <div class="total-bar" style="background:#1d1d1f;color:#fff;border-radius:10px;padding:10px;display:flex;justify-content:space-between;align-items:center;font-weight:700"><span>应填合计</span><span id="paySumLab">¥${origTotal}</span></div>
     <div style="color:#c62828;font-size:12px;margin-top:6px;display:none" id="payErr">⚠️ 三项金额合计与结算总额不一致（差额部分需补齐或归零）</div>
+    <div class="field" style="margin-top:10px"><label>备注（折扣原因等）</label><input id="settleNote" placeholder="如：老客折价 / 会员优惠 / 项目不完整等"></div>
     <div class="btn-row"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">取消</button><button class="btn g" onclick="confirmOut(${ri},this.closest('.modal-mask'))">确认下钟</button></div></div>`;
   mask.origTotal=origTotal;
   // 实时校验
@@ -234,7 +254,8 @@ async function confirmOut(ri,mask){
   const endNow=new Date();
   const payArr=[]; if(cash>0)payArr.push('现金¥'+cash); if(scan>0)payArr.push('扫码¥'+scan); if(mt>0)payArr.push('美团¥'+mt);
   const itemsDetail=cur.items.map((it,i)=>({orig:it.price, fin:fin[i]||it.price}));
-  DB.records.push({date:currentBizKey(),time:new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}),room:DB.rooms[ri].name,tech:cur.tech,total:total,commission:commission,origTotal:origTotal,itemCount:cur.items.length,extraCount:Math.max(0,cur.items.length-1),startTime:cur.startTime||'',endTime:endNow.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),pay:payArr,items:itemsDetail});
+  const note=(mask.querySelector('#settleNote')||{}).value||'';
+  DB.records.push({date:currentBizKey(),time:new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}),room:DB.rooms[ri].name,tech:cur.tech,total:total,commission:commission,origTotal:origTotal,itemCount:cur.items.length,extraCount:Math.max(0,cur.items.length-1),startTime:cur.startTime||'',endTime:endNow.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),pay:payArr,items:itemsDetail,note:note});
   DB.rooms[ri].status='free'; DB.rooms[ri].cur=null;
   mask.remove(); await save(); renderRooms(); toast('✅ 已结算 共 ¥'+total);
 }
@@ -253,13 +274,21 @@ function renderRoomTimes(){
     let body='';
     if(rows.length){
       body=`<div style="background:#f9fafb;border-radius:8px;padding:8px;margin-bottom:6px">`+rows.map((r,i)=>{
+        if(r.isReturn){
+          return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px;color:#c62828">
+            <div style="font-weight:600">${i+1}. ↩️ 退钟 · ${r.tech}</div>
+            <div style="color:#c62828">🕒 ${r.startTime||'--'} 上 → ${r.endTime||'--'}​</div>
+            <div style="color:#888">原因：${r.retReason||'--'}（无提成）</div>
+          </div>`;
+        }
         const items=(r.items||[]).map(it=>`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元`).join('、')||`${r.itemCount||1}钟`;
         const pay=(r.pay&&r.pay.length)?r.pay.join('/'):'';
+        const note=r.note?`<div style="color:#888">备注：${r.note}</div>`:'';
         return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px;color:#333">
           <div style="font-weight:600">${i+1}. 技师：${r.tech}</div>
           <div style="color:#555">🕒 ${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</div>
           <div style="color:#555">项目：${items}｜结账：${pay||'--'}</div>
-          <div style="color:#888">应收 ¥${r.origTotal||0} → 实收 ¥${r.total||0}（提成 ¥${r.commission||0}）</div>
+          <div style="color:#888">应收 ¥${r.origTotal||0} → 实收 ¥${r.total||0}（提成 ¥${r.commission||0}）</div>${note}
         </div>`;
       }).join('')+`</div>`;
     } else {
@@ -272,7 +301,8 @@ function renderRoomTimes(){
 
 function renderStats(){
   ensureDB();
-  const todays=(DB.records||[]).filter(r=>r.date===currentBizKey());
+  const todaysAll=(DB.records||[]).filter(r=>r.date===currentBizKey());
+  const todays=todaysAll.filter(r=>!r.isReturn);
   const totalClocks=todays.reduce((s,r)=>s+(r.itemCount||1),0);
   const extraClocks=todays.reduce((s,r)=>s+(r.extraCount||0),0);
   const should=todays.reduce((s,r)=>s+(r.origTotal||r.total||0),0);
