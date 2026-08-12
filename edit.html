@@ -178,7 +178,12 @@ function openSettle(ri){
   mask.innerHTML=`<div class="modal"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
     <h3>下钟结算 · ${cur.tech}</h3><div style="color:#888;font-size:12px;margin-bottom:8px">修改价格可做折扣，提成按原价</div>
     <div class="settle-list">${items}</div>
+    <div style="font-size:13px;font-weight:700;margin:8px 0 6px">💳 结账方式（可多选）</div>
+    <div class="projects" id="payWrap"><div class="proj">扫码</div><div class="proj">现金</div><div class="proj">美团</div></div>
     <div class="btn-row"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">取消</button><button class="btn g" onclick="confirmOut(${ri},this.closest('.modal-mask'))">确认下钟</button></div></div>`;
+  mask.paySel=[];
+  const pw=mask.querySelector('#payWrap');
+  pw.querySelectorAll('.proj').forEach(el=>{ el.dataset.on=''; el.onclick=()=>{ if(el.classList.contains('sel')){el.classList.remove('sel');mask.paySel=mask.paySel.filter(x=>x!==el.textContent.trim());} else {el.classList.add('sel');mask.paySel.push(el.textContent.trim());} }; });
   document.body.appendChild(mask);
 }
 async function confirmOut(ri,mask){
@@ -189,7 +194,9 @@ async function confirmOut(ri,mask){
   let commission=0; cur.items.forEach(it=>{commission+=COMMISSION[it.price]||0;});
   let origTotal=0; cur.items.forEach(it=>{origTotal+=it.price;});
   const endNow=new Date();
-  DB.records.push({date:dateKey(new Date()),time:new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}),room:DB.rooms[ri].name,tech:cur.tech,total:total,commission:commission,origTotal:origTotal,itemCount:cur.items.length,extraCount:Math.max(0,cur.items.length-1),startTime:cur.startTime||'',endTime:endNow.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})});
+  const pay=(mask.paySel&&mask.paySel.length)?mask.paySel.slice():[];
+  const itemsDetail=cur.items.map((it,i)=>({orig:it.price, fin:fin[i]||it.price}));
+  DB.records.push({date:dateKey(new Date()),time:new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}),room:DB.rooms[ri].name,tech:cur.tech,total:total,commission:commission,origTotal:origTotal,itemCount:cur.items.length,extraCount:Math.max(0,cur.items.length-1),startTime:cur.startTime||'',endTime:endNow.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),pay:pay,items:itemsDetail});
   DB.rooms[ri].status='free'; DB.rooms[ri].cur=null;
   mask.remove(); await save(); renderRooms(); toast('✅ 已结算 共 ¥'+total);
 }
@@ -201,14 +208,25 @@ function renderRoomTimes(){
   ensureDB();
   const todays=(DB.records||[]).filter(r=>r.date===dateKey(new Date()));
   const roomNames=DB.rooms.map(r=>r.name);
-  const order=roomNames;
   let html='';
-  order.forEach(rn=>{
+  roomNames.forEach(rn=>{
     const rows=todays.filter(r=>r.room===rn);
-    const hdr=`<div style="font-size:13px;font-weight:700;margin:8px 0 4px;color:#333">${rn} · 今日上钟 ${rows.length} 次</div>`;
-    const body = rows.length
-      ? `<div style="background:#f9fafb;border-radius:8px;padding:8px">`+rows.map((r,i)=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:#555"><span>${i+1}. ${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</span><span class="k">${r.itemCount||1}钟</span></div>`).join('')+`</div>`
-      : '<div style="color:#aaa;font-size:12px;padding:4px 0">今日暂无上钟</div>';
+    const hdr=`<div style="font-size:13px;font-weight:700;margin:10px 0 4px;color:#333">${rn} · 今日 ${rows.length} 单</div>`;
+    let body='';
+    if(rows.length){
+      body=`<div style="background:#f9fafb;border-radius:8px;padding:8px;margin-bottom:6px">`+rows.map((r,i)=>{
+        const items=(r.items||[]).map(it=>`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元`).join('、')||`${r.itemCount||1}钟`;
+        const pay=(r.pay&&r.pay.length)?r.pay.join('/'):'';
+        return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px;color:#333">
+          <div style="font-weight:600">${i+1}. 技师：${r.tech}</div>
+          <div style="color:#555">🕒 ${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</div>
+          <div style="color:#555">项目：${items}｜结账：${pay||'--'}</div>
+          <div style="color:#888">应收 ¥${r.origTotal||0} → 实收 ¥${r.total||0}（提成 ¥${r.commission||0}）</div>
+        </div>`;
+      }).join('')+`</div>`;
+    } else {
+      body='<div style="color:#aaa;font-size:12px;padding:4px 0">今日暂无上钟</div>';
+    }
     html += hdr+body;
   });
   document.getElementById('eRoomTimes').innerHTML = html || '<div style="color:#aaa;padding:10px">暂无数据</div>';
