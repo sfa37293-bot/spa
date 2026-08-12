@@ -60,7 +60,7 @@
       <div class="box"><div class="n" id="gTotal">0</div><div class="l">总钟数</div></div>
       <div class="box"><div class="n" id="gExtra">0</div><div class="l">加钟数</div></div>
       <div class="box"><div class="n" id="gShould">0</div><div class="l">应收</div></div>
-      <div class="box"><div class="n" id="gGet">0</div><div class="l">实收</div></div>
+      <div class="box" style="cursor:pointer;background:#e8f0fe" onclick="openPayChannels()"><div class="n" id="gGet">0</div><div class="l" style="color:#007aff">实收 ▶渠道</div></div>
       <div class="box" style="cursor:pointer;background:#e8f0fe" onclick="openTechComm()"><div class="n" id="gComm">0</div><div class="l" style="color:#007aff">技师提成 ▶</div></div>
     </div>
   </div>
@@ -150,6 +150,22 @@ function openTechComm(){
   const mask=document.createElement('div');
   mask.className='modal-mask show'; mask.style.zIndex=260;
   mask.innerHTML=`<div class="modal" style="max-width:440px"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button><h3>👤 技师提成明细</h3>${rows}<div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
+  document.body.appendChild(mask);
+}
+let viewRecords=[];
+function openPayChannels(){
+  const today=currentBizKey();
+  const cmap={现金:0,扫码:0,美团:0};
+  (viewRecords||[]).filter(r=>r.date===today && !r.isReturn).forEach(r=>{
+    (r.pay||[]).forEach(p=>{
+      const m=String(p).match(/^(.+?)¥(\d+)/);
+      if(m){ const ch=m[1]; const amt=parseFloat(m[2]); if(cmap[ch]!==undefined) cmap[ch]+=amt; }
+    });
+  });
+  const rows=['现金','扫码','美团'].map(ch=>`<div class="ts" style="border:none"><span class="tn" style="flex:1">${ch}</span><span style="color:#007aff;font-weight:700">¥${cmap[ch]}</span></div>`).join('');
+  const mask=document.createElement('div');
+  mask.className='modal-mask show'; mask.style.zIndex=260;
+  mask.innerHTML=`<div class="modal" style="max-width:440px"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button><h3>💳 收款渠道统计</h3>${rows}<div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
   document.body.appendChild(mask);
 }
 
@@ -277,6 +293,7 @@ async function tick(){
   try{
     const st = await readNode('');
     if(!st || !st.rooms){ return; }
+    viewRecords=st.records||[];
     renderRooms(st.rooms);
     renderStats(st.records);
     renderRoomTimes(st.records, st.rooms);
