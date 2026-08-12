@@ -57,6 +57,7 @@
   <div class="panel">
     <div class="gt">📊 营业汇总</div>
     <div class="grid">
+      <div class="box" style="cursor:pointer;background:#e8f0fe" onclick="openTraffic()"><div class="n" id="gTraffic">0</div><div class="l" style="color:#007aff">总客流 ▶</div></div>
       <div class="box"><div class="n" id="gTotal">0</div><div class="l">总钟数</div></div>
       <div class="box"><div class="n" id="gExtra">0</div><div class="l">加钟数</div></div>
       <div class="box"><div class="n" id="gShould">0</div><div class="l">应收</div></div>
@@ -132,6 +133,11 @@ function renderStats(records){
   document.getElementById('gShould').textContent=should;
   document.getElementById('gGet').textContent=get;
   document.getElementById('gComm').textContent=comm;
+  const todayAll=records.filter(r=>r.date===today);
+  const rets=todayAll.filter(r=>r.isReturn);
+  const walks=todayAll.filter(r=>r.isWalk);
+  viewTraffic={rooms:todays,rets:rets,walks:walks};
+  document.getElementById('gTraffic').textContent=(todays.length+rets.length+walks.length);
   const map={};
   const CMAP={198:90,298:140,398:190,498:240};
   todays.forEach(r=>{
@@ -146,6 +152,21 @@ function renderStats(records){
   viewTechMap=map;
 }
 let viewTechMap={};
+let viewTraffic={rooms:[],rets:[],walks:[]};
+function openTraffic(){
+  const d=viewTraffic||{rooms:[],rets:[],walks:[]};
+  const rooms=(d.rooms||[]).map((r,i)=>`<div class="ts" style="border:none"><span>${i+1}. ${r.room}·${(r.techs||[r.tech]).join('、')}</span><span style="color:#555">${r.startTime||''} 实收¥${r.total||0}</span></div>`).join('')||'<div style="color:#aaa;text-align:center;padding:8px">今日暂无开房</div>';
+  const rets=(d.rets||[]).map((r,i)=>`<div class="ts" style="border:none;color:#c62828"><span>${i+1}. ↩️${r.room}·${(r.techs||[r.tech]).join('、')}</span><span>${r.time||r.startTime||''} 原因：${r.retReason||'--'}</span></div>`).join('')||'<div style="color:#aaa;text-align:center;padding:8px">今日无退钟</div>';
+  const walks=(d.walks||[]).map((r,i)=>`<div class="ts" style="border:none;color:#9c27b0"><span>${i+1}. 🚶${r.room}${(r.techs&&r.techs.length)?('·'+r.techs.join('、')):''}</span><span>${r.time||r.startTime||''} 原因：${r.walkReason||'--'}</span></div>`).join('')||'<div style="color:#aaa;text-align:center;padding:8px">今日无走客</div>';
+  const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=270;
+  mask.innerHTML=`<div class="modal" style="max-width:440px"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
+    <h3>🧑‍🤝‍🧑 总客流详情</h3>
+    <div style="font-size:13px;font-weight:700;color:#333;margin:6px 0 4px">🛏️ 总开房（${(d.rooms||[]).length}）</div>${rooms}
+    <div style="font-size:13px;font-weight:700;color:#c62828;margin:8px 0 4px">↩️ 退钟（${(d.rets||[]).length}）</div>${rets}
+    <div style="font-size:13px;font-weight:700;color:#9c27b0;margin:8px 0 4px">🚶 走客（${(d.walks||[]).length}）</div>${walks}
+    <div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
+  document.body.appendChild(mask);
+}
 function openTechComm(){
   const names=Object.keys(viewTechMap);
   const rows=names.length
