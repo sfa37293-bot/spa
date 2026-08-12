@@ -71,6 +71,8 @@
     </div>
     <div style="font-size:15px;font-weight:700;margin:16px 0 8px">👤 技师提成明细</div>
     <div id="eTechList"></div>
+    <div style="font-size:15px;font-weight:700;margin:16px 0 8px">🕒 房间上下钟时间</div>
+    <div id="eRoomTimes"></div>
   </div>
 
   <div class="foot">录入自动同步 · B机看板实时显示</div>
@@ -152,6 +154,7 @@ function renderRooms(){
     d.appendChild(b); box.appendChild(d);
   });
   renderStats();
+  renderRoomTimes();
 }
 
 async function clockIn(ri){
@@ -185,7 +188,8 @@ async function confirmOut(ri,mask){
   inputs.forEach(inp=>{let v=parseFloat(inp.value)||0; fin.push(v); total+=v;});
   let commission=0; cur.items.forEach(it=>{commission+=COMMISSION[it.price]||0;});
   let origTotal=0; cur.items.forEach(it=>{origTotal+=it.price;});
-  DB.records.push({date:dateKey(new Date()),time:new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}),room:DB.rooms[ri].name,tech:cur.tech,total:total,commission:commission,origTotal:origTotal,itemCount:cur.items.length,extraCount:Math.max(0,cur.items.length-1)});
+  const endNow=new Date();
+  DB.records.push({date:dateKey(new Date()),time:new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}),room:DB.rooms[ri].name,tech:cur.tech,total:total,commission:commission,origTotal:origTotal,itemCount:cur.items.length,extraCount:Math.max(0,cur.items.length-1),startTime:cur.startTime||'',endTime:endNow.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})});
   DB.rooms[ri].status='free'; DB.rooms[ri].cur=null;
   mask.remove(); await save(); renderRooms(); toast('✅ 已结算 共 ¥'+total);
 }
@@ -193,6 +197,23 @@ async function confirmOut(ri,mask){
 // 技师管理
 function openTech(){ document.getElementById('techMask').classList.add('show'); renderTechTags(); }
 function closeTech(){ document.getElementById('techMask').classList.remove('show'); }
+function renderRoomTimes(){
+  ensureDB();
+  const todays=(DB.records||[]).filter(r=>r.date===dateKey(new Date()));
+  const roomNames=DB.rooms.map(r=>r.name);
+  const order=roomNames;
+  let html='';
+  order.forEach(rn=>{
+    const rows=todays.filter(r=>r.room===rn);
+    const hdr=`<div style="font-size:13px;font-weight:700;margin:8px 0 4px;color:#333">${rn} · 今日上钟 ${rows.length} 次</div>`;
+    const body = rows.length
+      ? `<div style="background:#f9fafb;border-radius:8px;padding:8px">`+rows.map((r,i)=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:#555"><span>${i+1}. ${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</span><span class="k">${r.itemCount||1}钟</span></div>`).join('')+`</div>`
+      : '<div style="color:#aaa;font-size:12px;padding:4px 0">今日暂无上钟</div>';
+    html += hdr+body;
+  });
+  document.getElementById('eRoomTimes').innerHTML = html || '<div style="color:#aaa;padding:10px">暂无数据</div>';
+}
+
 function renderStats(){
   ensureDB();
   const todays=(DB.records||[]).filter(r=>r.date===dateKey(new Date()));
