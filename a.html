@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SPA 点单 · 录入端</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f5f7;color:#1d1d1f;padding-bottom:90px}
+  .topbar{position:fixed;top:0;left:0;right:0;z-index:100;background:#1d1d1f;color:#fff;padding:13px 16px;display:flex;justify-content:space-between;align-items:center}
+  .topbar h1{font-size:17px}
+  .topbar .syncs{font-size:11px;padding:4px 11px;border-radius:12px;font-weight:600}
+  .syncs.ok{background:#2e7d32;color:#fff}
+  .syncs.bad{background:#e53935;color:#fff}
+  .container{max-width:560px;margin:0 auto;padding:14px;margin-top:56px}
+  .room{background:#fff;border-radius:14px;margin-bottom:14px;box-shadow:0 1px 6px rgba(0,0,0,.08);overflow:hidden}
+  .room-head{padding:15px;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+  .room-head .name{font-size:16px;font-weight:700}
+  .room-head .st{font-size:13px;padding:4px 10px;border-radius:20px;font-weight:600}
+  .st.free{background:#e8f5e9;color:#2e7d32}
+  .st.busy{background:#ffebee;color:#c62828}
+  .room-body{padding:14px;border-top:1px solid #eee}
+  .field{margin-bottom:11px}
+  .field label{display:block;font-size:13px;color:#666;margin-bottom:5px;font-weight:600}
+  .field select,.field input{width:100%;padding:11px 13px;border:1px solid #ddd;border-radius:10px;font-size:15px;background:#fafafa}
+  .projects{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .proj{padding:13px;text-align:center;border:2px solid #ddd;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;background:#fafafa}
+  .proj.sel{border-color:#007aff;background:#e8f0fe;color:#007aff}
+  .proj .price{font-size:11px;font-weight:400;color:#888;display:block;margin-top:2px}
+  .btn-row{display:flex;gap:9px;margin-top:12px}
+  .btn{flex:1;padding:12px;border:none;border-radius:10px;font-size:15px;font-weight:600;color:#fff;cursor:pointer}
+  .p{background:#007aff}.g{background:#2e7d32}.a{background:#f59e0b}.r{background:#e53935}.gr{background:#8e8e93}
+  .cur-info{background:#f0f4ff;border:1px solid #cfe0ff;border-radius:10px;padding:11px;margin-bottom:12px}
+  .cur-info .line{display:flex;justify-content:space-between;padding:3px 0;font-size:14px}
+  .cur-info .line .k{color:#666}.cur-info .line .v{font-weight:700}
+  .settle-list{margin-bottom:10px}
+  .settle-item{display:flex;align-items:center;gap:8px;padding:10px;border:1px solid #eee;border-radius:8px;margin-bottom:8px}
+  .settle-item .info{flex:1;font-size:14px}
+  .settle-item .info .pname{font-weight:600}.settle-item .info .meta{font-size:12px;color:#888}
+  .settle-item input{width:88px;padding:8px;border:1px solid #ddd;border-radius:8px;text-align:center;font-size:15px}
+  .modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none;justify-content:center;align-items:flex-start;padding:40px 16px}
+  .modal-mask.show{display:flex}
+  .modal{background:#fff;border-radius:14px;width:100%;max-width:440px;padding:18px}
+  .modal h3{font-size:16px;margin-bottom:12px}
+  .modal .close{float:right;background:none;border:none;font-size:20px;color:#999;cursor:pointer}
+  .toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);color:#fff;padding:10px 18px;border-radius:8px;font-size:14px;z-index:300;display:none}
+  .sec{font-size:14px;font-weight:700;margin:10px 0 8px}
+  .foot{text-align:center;color:#aaa;font-size:11px;padding:10px}
+  .btn.tech{margin-bottom:12px;flex:none;padding:10px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>SPA 点单 · 录入端</h1>
+  <span id="syncDot" class="syncs bad">连接中</span>
+</div>
+<div class="container">
+  <div class="btn-row" style="margin-bottom:0">
+    <button class="btn gr tech" onclick="openTech()">👥 技师</button>
+  </div>
+  <div id="roomsBox"></div>
+
+  <div style="background:#fff;border-radius:14px;padding:16px;margin-top:14px;box-shadow:0 1px 6px rgba(0,0,0,.08)">
+    <div style="font-size:15px;font-weight:700;margin-bottom:10px">📊 今日营业汇总</div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px" id="statsGrid">
+      <div style="background:#f5f7fa;border-radius:10px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:800;color:#007aff" id="gTotal">0</div><div style="font-size:11px;color:#888;margin-top:2px">总钟数</div></div>
+      <div style="background:#f5f7fa;border-radius:10px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:800;color:#007aff" id="gExtra">0</div><div style="font-size:11px;color:#888;margin-top:2px">加钟数</div></div>
+      <div style="background:#f5f7fa;border-radius:10px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:800;color:#007aff" id="gShould">0</div><div style="font-size:11px;color:#888;margin-top:2px">应收</div></div>
+      <div style="background:#f5f7fa;border-radius:10px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:800;color:#007aff" id="gGet">0</div><div style="font-size:11px;color:#888;margin-top:2px">实收</div></div>
+      <div style="background:#f5f7fa;border-radius:10px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:800;color:#007aff" id="gComm">0</div><div style="font-size:11px;color:#888;margin-top:2px">技师提成</div></div>
+    </div>
+    <div style="font-size:15px;font-weight:700;margin:16px 0 8px">👤 技师提成明细</div>
+    <div id="eTechList"></div>
+    <div style="font-size:15px;font-weight:700;margin:16px 0 8px">🕒 房间上下钟时间</div>
+    <div id="eRoomTimes"></div>
+  </div>
+
+  <div class="foot">录入自动同步 · B机看板实时显示</div>
+</div>
+
+<!-- 技师管理弹窗 -->
+<div class="modal-mask" id="techMask" onclick="if(event.target===this)closeTech()">
+  <div class="modal">
+    <button class="close" onclick="closeTech()">×</button>
+    <h3>技师管理</h3>
+    <div class="field"><input id="newTech" placeholder="输入技师姓名"></div>
+    <div class="btn-row"><button class="btn g" onclick="addTech()">添加</button></div>
+    <div id="techTags" style="margin-top:12px"></div>
+    <button class="btn gr" style="width:100%;margin-top:12px" onclick="closeTech()">关闭</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const DBURL = 'https://spa123-da150-default-rtdb.asia-southeast1.firebasedatabase.app/';
+const COMMISSION = {198:90,298:140,398:190,498:240};
+const PROJS = [198,298,398,498];
+let DB = null;
+
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.style.display='block';clearTimeout(toast._t);toast._t=setTimeout(()=>t.style.display='none',2200);}
+function dateKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function setSync(ok,msg){const s=document.getElementById('syncDot');s.className='syncs '+(ok?'ok':'bad');s.textContent=msg;}
+
+async function readAll(){ const r=await fetch(DBURL+'.json',{cache:'no-store'}); if(!r.ok)throw new Error('HTTP '+r.status); return r.json(); }
+async function writeNode(path,val){ const r=await fetch(DBURL+path+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(val)}); if(!r.ok)throw new Error('HTTP '+r.status); }
+
+async function save(){
+  try{ await writeNode('', DB); setSync(true,'● 已同步'); }
+  catch(e){ setSync(false,'● 同步失败'); toast('同步失败:'+e.message); }
+}
+
+function ensureDB(){
+  if(!DB || !DB.rooms){
+    DB={techs:['小丽','小美'],rooms:[{id:0,name:'房间 1',status:'free',cur:null},{id:1,name:'房间 2',status:'free',cur:null}],records:[]};
+  }
+}
+
+async function init(){
+  try{ const d=await readAll(); if(d&&d.rooms)DB=d; else ensureDB(); }
+  catch(e){ ensureDB(); }
+  renderRooms(); renderTechTags(); setSync(true,'● 已同步');
+}
+
+function renderRooms(){
+  ensureDB();
+  const box=document.getElementById('roomsBox'); box.innerHTML='';
+  DB.rooms.forEach((room,ri)=>{
+    const busy=room.status==='busy';
+    const d=document.createElement('div'); d.className='room';
+    d.innerHTML=`<div class="room-head"><span class="name">${room.name}</span><span class="st ${busy?'busy':'free'}">${busy?'上钟中':'空闲'}</span></div>`;
+    const b=document.createElement('div'); b.className='room-body'; b.style.display=busy?'block':'none'; b.id='rb'+ri;
+    d.querySelector('.room-head').onclick=()=>{ b.style.display=b.style.display==='none'?'block':'none'; };
+    if(!busy){
+      b.innerHTML=`
+        <div class="field"><label>技师</label><select id="ts${ri}">${DB.techs.map(t=>`<option>${t}</option>`).join('')}</select></div>
+        <div class="field"><label>项目</label><div class="projects" id="pw${ri}"></div></div>
+        <div class="btn-row"><button class="btn p" onclick="clockIn(${ri})">🔔 上钟</button></div>`;
+      const pw=b.querySelector('#pw'+ri);
+      PROJS.forEach(p=>{const el=document.createElement('div');el.className='proj';el.innerHTML=`<span>${p}元</span><span class="price">提成 ${COMMISSION[p]}元</span>`;el.onclick=()=>{pw.querySelectorAll('.proj').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');pw.dataset.sel=p;};pw.appendChild(el);});
+    } else {
+      const cur=room.cur;
+      const items=cur.items.map((it,i)=>`<div class="line"><span class="k">项目${i+1}</span><span class="v">${it.price}元</span></div>`).join('');
+      b.innerHTML=`
+        <div class="cur-info">
+          <div class="line"><span class="k">技师</span><span class="v">${cur.tech}</span></div>
+          <div class="line"><span class="k">上钟</span><span class="v">${cur.startTime}</span></div>${items}
+        </div>
+        <div class="sec">加钟</div><div class="projects" id="pw${ri}"></div>
+        <div class="btn-row"><button class="btn a" onclick="addClock(${ri})">加钟</button><button class="btn r" onclick="openSettle(${ri})">下钟</button></div>`;
+      const pw=b.querySelector('#pw'+ri);
+      PROJS.forEach(p=>{const el=document.createElement('div');el.className='proj';el.innerHTML=`<span>${p}元</span>`;el.onclick=()=>{pw.querySelectorAll('.proj').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');pw.dataset.sel=p;};pw.appendChild(el);});
+    }
+    d.appendChild(b); box.appendChild(d);
+  });
+  renderStats();
+  renderRoomTimes();
+}
+
+async function clockIn(ri){
+  const tech=document.getElementById('ts'+ri).value;
+  const pw=document.getElementById('pw'+ri); const sel=pw.dataset.sel;
+  if(!sel){toast('请先选项目');return;}
+  DB.rooms[ri].status='busy';
+  DB.rooms[ri].cur={tech,startTime:new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),items:[{price:parseInt(sel)}]};
+  await save(); renderRooms(); toast('✅ 上钟成功');
+}
+async function addClock(ri){
+  const pw=document.getElementById('pw'+ri); const sel=pw.dataset.sel;
+  if(!sel){toast('请先选要加的项目');return;}
+  DB.rooms[ri].cur.items.push({price:parseInt(sel)});
+  await save(); renderRooms(); toast('✅ 已加钟');
+}
+function openSettle(ri){
+  const cur=DB.rooms[ri].cur;
+  const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=250;
+  const items=cur.items.map((it,i)=>`<div class="settle-item"><div class="info"><div class="pname">项目 ${i+1}（原价 ${it.price}，提成 ${COMMISSION[it.price]}）</div></div><input type="number" value="${it.price}" data-i="${i}"></div>`).join('');
+  mask.innerHTML=`<div class="modal"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
+    <h3>下钟结算 · ${cur.tech}</h3><div style="color:#888;font-size:12px;margin-bottom:8px">修改价格可做折扣，提成按原价</div>
+    <div class="settle-list">${items}</div>
+    <div style="font-size:13px;font-weight:700;margin:8px 0 6px">💳 结账方式（可多选）</div>
+    <div class="projects" id="payWrap"><div class="proj">扫码</div><div class="proj">现金</div><div class="proj">美团</div></div>
+    <div class="btn-row"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">取消</button><button class="btn g" onclick="confirmOut(${ri},this.closest('.modal-mask'))">确认下钟</button></div></div>`;
+  mask.paySel=[];
+  const pw=mask.querySelector('#payWrap');
+  pw.querySelectorAll('.proj').forEach(el=>{ el.dataset.on=''; el.onclick=()=>{ if(el.classList.contains('sel')){el.classList.remove('sel');mask.paySel=mask.paySel.filter(x=>x!==el.textContent.trim());} else {el.classList.add('sel');mask.paySel.push(el.textContent.trim());} }; });
+  document.body.appendChild(mask);
+}
+async function confirmOut(ri,mask){
+  const cur=DB.rooms[ri].cur;
+  const inputs=mask.querySelectorAll('input[data-i]');
+  const fin=[]; let total=0;
+  inputs.forEach(inp=>{let v=parseFloat(inp.value)||0; fin.push(v); total+=v;});
+  let commission=0; cur.items.forEach(it=>{commission+=COMMISSION[it.price]||0;});
+  let origTotal=0; cur.items.forEach(it=>{origTotal+=it.price;});
+  const endNow=new Date();
+  const pay=(mask.paySel&&mask.paySel.length)?mask.paySel.slice():[];
+  const itemsDetail=cur.items.map((it,i)=>({orig:it.price, fin:fin[i]||it.price}));
+  DB.records.push({date:dateKey(new Date()),time:new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}),room:DB.rooms[ri].name,tech:cur.tech,total:total,commission:commission,origTotal:origTotal,itemCount:cur.items.length,extraCount:Math.max(0,cur.items.length-1),startTime:cur.startTime||'',endTime:endNow.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),pay:pay,items:itemsDetail});
+  DB.rooms[ri].status='free'; DB.rooms[ri].cur=null;
+  mask.remove(); await save(); renderRooms(); toast('✅ 已结算 共 ¥'+total);
+}
+
+// 技师管理
+function openTech(){ document.getElementById('techMask').classList.add('show'); renderTechTags(); }
+function closeTech(){ document.getElementById('techMask').classList.remove('show'); }
+function renderRoomTimes(){
+  ensureDB();
+  const todays=(DB.records||[]).filter(r=>r.date===dateKey(new Date()));
+  const roomNames=DB.rooms.map(r=>r.name);
+  let html='';
+  roomNames.forEach(rn=>{
+    const rows=todays.filter(r=>r.room===rn);
+    const hdr=`<div style="font-size:13px;font-weight:700;margin:10px 0 4px;color:#333">${rn} · 今日 ${rows.length} 单</div>`;
+    let body='';
+    if(rows.length){
+      body=`<div style="background:#f9fafb;border-radius:8px;padding:8px;margin-bottom:6px">`+rows.map((r,i)=>{
+        const items=(r.items||[]).map(it=>`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元`).join('、')||`${r.itemCount||1}钟`;
+        const pay=(r.pay&&r.pay.length)?r.pay.join('/'):'';
+        return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px;color:#333">
+          <div style="font-weight:600">${i+1}. 技师：${r.tech}</div>
+          <div style="color:#555">🕒 ${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</div>
+          <div style="color:#555">项目：${items}｜结账：${pay||'--'}</div>
+          <div style="color:#888">应收 ¥${r.origTotal||0} → 实收 ¥${r.total||0}（提成 ¥${r.commission||0}）</div>
+        </div>`;
+      }).join('')+`</div>`;
+    } else {
+      body='<div style="color:#aaa;font-size:12px;padding:4px 0">今日暂无上钟</div>';
+    }
+    html += hdr+body;
+  });
+  document.getElementById('eRoomTimes').innerHTML = html || '<div style="color:#aaa;padding:10px">暂无数据</div>';
+}
+
+function renderStats(){
+  ensureDB();
+  const todays=(DB.records||[]).filter(r=>r.date===dateKey(new Date()));
+  const totalClocks=todays.reduce((s,r)=>s+(r.itemCount||1),0);
+  const extraClocks=todays.reduce((s,r)=>s+(r.extraCount||0),0);
+  const should=todays.reduce((s,r)=>s+(r.origTotal||r.total||0),0);
+  const get=todays.reduce((s,r)=>s+(r.total||0),0);
+  const comm=todays.reduce((s,r)=>s+(r.commission||0),0);
+  document.getElementById('gTotal').textContent=totalClocks;
+  document.getElementById('gExtra').textContent=extraClocks;
+  document.getElementById('gShould').textContent=should;
+  document.getElementById('gGet').textContent=get;
+  document.getElementById('gComm').textContent=comm;
+  const map={}; todays.forEach(r=>{ if(!map[r.tech])map[r.tech]={c:0,t:0}; map[r.tech].c+=(r.itemCount||1); map[r.tech].t+=(r.commission||0); });
+  const names=Object.keys(map);
+  document.getElementById('eTechList').innerHTML = names.length
+    ? names.map(n=>`<div style="display:flex;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px"><span style="font-weight:600">${n}</span><span>${map[n].c}钟</span><span style="color:#2e7d32;font-weight:700">¥${map[n].t}</span></div>`).join('')
+    : '<div style="text-align:center;color:#aaa;padding:10px">暂无记录</div>';
+}
+
+function renderTechTags(){
+  ensureDB();
+  const box=document.getElementById('techTags'); box.innerHTML='';
+  DB.techs.forEach((t,i)=>{
+    const el=document.createElement('div'); el.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:14px';
+    el.innerHTML=`<span>${t}</span><span style="color:#c62828;font-weight:700;cursor:pointer" onclick="delTech(${i})">✕</span>`;
+    box.appendChild(el);
+  });
+}
+async function addTech(){
+  const inp=document.getElementById('newTech'); const name=inp.value.trim();
+  if(!name){toast('请输入姓名');return;}
+  DB.techs.push(name); inp.value=''; await save(); renderTechTags(); renderRooms(); toast('✅ 已添加');
+}
+async function delTech(i){
+  DB.techs.splice(i,1); await save(); renderTechTags(); renderRooms(); toast('已删除');
+}
+
+// 每8秒拉取最新(多设备时B机/A机冲突以云端为准,但录入端本地为主,这里仅同步房间状态)
+setInterval(async()=>{ try{ const d=await readAll(); if(d&&d.rooms){ /* 仅拉取技师和房间,避免覆盖正在编辑的 */ DB.techs=d.techs||DB.techs; DB.records=d.records||DB.records; renderTechTags(); } }catch(e){} },8000);
+
+init();
+</script>
+</body>
+</html>
