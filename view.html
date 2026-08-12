@@ -94,8 +94,9 @@ function renderRooms(rooms){
     const div=document.createElement('div'); div.className='room';
     let body;
     if(busy){
-      const items = room.cur.items.map((it,i)=>`<div class="line"><span>项目${i+1}</span><span>¥${it.price}</span></div>`).join('');
-      body=`<div class="line"><span>技师</span><span>${room.cur.tech}</span></div>
+      const items = room.cur.items.map((it,i)=>`<div class="line"><span>项目${i+1}${it.price===798?'(双人)':''}</span><span>¥${it.price}</span></div>`).join('');
+      const techs=(room.cur.techs&&room.cur.techs.length)?room.cur.techs.join('、'):(room.cur.tech||'');
+      body=`<div class="line"><span>技师</span><span>${techs}</span></div>
             <div class="line"><span>上钟</span><span>${room.cur.startTime||''}</span></div>${items}`;
     } else {
       body='<div class="empty">空闲 · 可上钟</div>';
@@ -119,7 +120,16 @@ function renderStats(records){
   document.getElementById('gShould').textContent=should;
   document.getElementById('gGet').textContent=get;
   document.getElementById('gComm').textContent=comm;
-  const map={}; todays.forEach(r=>{ if(!map[r.tech])map[r.tech]={c:0,t:0}; map[r.tech].c+=(r.itemCount||1); map[r.tech].t+=(r.commission||0); });
+  const map={};
+  const CMAP={198:90,298:140,398:190,498:240};
+  todays.forEach(r=>{
+    (r.items||[]).forEach(it=>{
+      const techs=it.techs&&it.techs.length?it.techs:(r.techs||[r.tech]);
+      const comm=(it.orig===798)?(190*techs.length):(CMAP[it.orig]||0);
+      const per=techs.length?Math.round(comm/techs.length):comm;
+      techs.forEach(tn=>{ if(!map[tn])map[tn]={c:0,t:0}; map[tn].c+=1; map[tn].t+=per; });
+    });
+  });
   const names=Object.keys(map);
   document.getElementById('techList').innerHTML = names.length
     ? names.map(n=>`<div class="ts"><span class="tn">${n}</span><span>${map[n].c}钟</span><span class="tj">¥${map[n].t}</span></div>`).join('')
@@ -138,18 +148,19 @@ function renderRoomTimes(records,rooms){
     html += `<div class="ts" style="font-weight:700"><span>${rn}</span><span>${rows.length}单${retCount?'（退'+retCount+'）':''}</span></div>`;
     html += rows.length
       ? `<div style="background:#f9fafb;border-radius:8px;padding:5px 8px;margin-bottom:6px">`+rows.map(r=>{
+          const techs=(r.techs&&r.techs.length)?r.techs.join('、'):(r.tech||'');
           if(r.isReturn){
             return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px;color:#c62828">
-              <div style="font-weight:600">↩️ 退钟 · ${r.tech}</div>
+              <div style="font-weight:600">↩️ 退钟 · ${techs}</div>
               <div style="color:#c62828">${r.startTime||'--'} 上 → ${r.endTime||'--'}（无提成）</div>
               <div style="color:#888">原因：${r.retReason||'--'}</div>
             </div>`;
           }
-          const items=(r.items||[]).map(it=>`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元`).join('、')||`${r.itemCount||1}钟`;
+          const items=(r.items||[]).map(it=>`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元${it.orig===798?'(双人)':''}${(it.techs&&it.techs.length>1)?'('+it.techs.join('/')+')':''}`).join('、')||`${r.itemCount||1}钟`;
           const pay=(r.pay&&r.pay.length)?r.pay.join('/'):'--';
           const note=r.note?`<div style="color:#888">备注：${r.note}</div>`:'';
           return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px">
-            <div style="font-weight:600;color:#333">技师：${r.tech}</div>
+            <div style="font-weight:600;color:#333">技师：${techs}</div>
             <div style="color:#555">${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</div>
             <div style="color:#555">项目：${items}｜结账：${pay}</div>
             <div style="color:#888">应收 ¥${r.origTotal||0} → 实收 ¥${r.total||0}（提成 ¥${r.commission||0}）</div>${note}
@@ -200,18 +211,19 @@ function renderDayDetail(rows){
   const sumComm=norm.reduce((s,r)=>s+(r.commission||0),0);
   let h=`<div style="font-weight:700;color:#333;padding:3px 0">应收 ¥${sumShould} ｜ 实收 ¥${sumGet} ｜ 提成 ¥${sumComm}${rets.length?' ｜ 退钟 '+rets.length+'单':''}</div>`;
   h+=rows.map(r=>{
-    const items=(r.items||[]).map(it=>`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元`).join('、')||`${r.itemCount||1}钟`;
+    const techs=(r.techs&&r.techs.length)?r.techs.join('、'):(r.tech||'');
+    const items=(r.items||[]).map(it=>`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元${it.orig===798?'(双人)':''}`).join('、')||`${r.itemCount||1}钟`;
     const pay=(r.pay&&r.pay.length)?r.pay.join('/'):'--';
     if(r.isReturn){
       return `<div style="padding:4px 0;border-bottom:1px dashed #e5e5ea;color:#c62828">
-        <div style="font-weight:600">↩️ 退钟 · ${r.room}·${r.tech}</div>
+        <div style="font-weight:600">↩️ 退钟 · ${r.room}·${techs}</div>
         <div style="color:#c62828">${r.startTime||'--'}上→${r.endTime||'--'}下（无提成）</div>
         <div style="color:#888">原因：${r.retReason||'--'}</div>
       </div>`;
     }
     const note=r.note?`<div style="color:#888">备注：${r.note}</div>`:'';
     return `<div style="padding:4px 0;border-bottom:1px dashed #e5e5ea">
-      <div style="font-weight:600">${r.room}·${r.tech}</div>
+      <div style="font-weight:600">${r.room}·${techs}</div>
       <div style="color:#555">${r.startTime||'--'}上→${r.endTime||'--'}下 ｜ ${items}</div>
       <div style="color:#555">结账：${pay} ｜ 应收¥${r.origTotal||0}→实收¥${r.total||0}</div>${note}
     </div>`;
