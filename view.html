@@ -34,6 +34,14 @@
   .ts .tj{color:#2e7d32;font-weight:700}
   .foot{text-align:center;color:#aaa;font-size:11px;padding:14px 0}
   .upd{text-align:center;color:#aaa;font-size:11px;padding:4px}
+  .modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none;justify-content:center;align-items:flex-start;padding:40px 16px}
+  .modal-mask.show{display:flex}
+  .modal{background:#fff;border-radius:14px;width:100%;max-width:420px;padding:18px}
+  .modal h3{font-size:16px;margin-bottom:12px}
+  .modal .close{float:right;background:none;border:none;font-size:20px;color:#999}
+  .btn-row{display:flex;gap:9px;margin-top:12px}
+  .btn{flex:1;padding:12px;border:none;border-radius:10px;font-size:15px;font-weight:600;color:#fff;cursor:pointer}
+  .btn.gr{background:#8e8e93}
 </style>
 </head>
 <body>
@@ -53,12 +61,8 @@
       <div class="box"><div class="n" id="gExtra">0</div><div class="l">加钟数</div></div>
       <div class="box"><div class="n" id="gShould">0</div><div class="l">应收</div></div>
       <div class="box"><div class="n" id="gGet">0</div><div class="l">实收</div></div>
-      <div class="box"><div class="n" id="gComm">0</div><div class="l">技师提成</div></div>
+      <div class="box" style="cursor:pointer;background:#e8f0fe" onclick="openTechComm()"><div class="n" id="gComm">0</div><div class="l" style="color:#007aff">技师提成 ▶</div></div>
     </div>
-  </div>
-  <div class="panel">
-    <div class="gt">👤 技师提成</div>
-    <div id="techList"></div>
   </div>
   <div class="panel">
     <div class="gt">🕒 房间上下钟时间</div>
@@ -130,10 +134,18 @@ function renderStats(records){
       techs.forEach(tn=>{ if(!map[tn])map[tn]={c:0,t:0}; map[tn].c+=1; map[tn].t+=per; });
     });
   });
-  const names=Object.keys(map);
-  document.getElementById('techList').innerHTML = names.length
-    ? names.map((n,idx)=>`<div class="ts"><span style="color:#888;font-size:12px;width:20px">${idx+1}.</span><span class="tn" style="flex:1">${n}</span><span>${map[n].c}钟</span><span class="tj">¥${map[n].t}</span></div>`).join('')
-    : '<div style="text-align:center;color:#aaa;padding:10px">暂无记录</div>';
+  viewTechMap=map;
+}
+let viewTechMap={};
+function openTechComm(){
+  const names=Object.keys(viewTechMap);
+  const rows=names.length
+    ? names.map((n,idx)=>`<div class="ts" style="border:none"><span style="color:#888;font-size:12px;width:22px">${idx+1}.</span><span class="tn" style="flex:1">${n}</span><span>${viewTechMap[n].c}钟</span><span class="tj">¥${viewTechMap[n].t}</span></div>`).join('')
+    : '<div style="text-align:center;color:#aaa;padding:16px">今日暂无提成</div>';
+  const mask=document.createElement('div');
+  mask.className='modal-mask show'; mask.style.zIndex=260;
+  mask.innerHTML=`<div class="modal" style="max-width:440px"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button><h3>👤 技师提成明细</h3>${rows}<div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
+  document.body.appendChild(mask);
 }
 
 function renderRoomTimes(records,rooms){
