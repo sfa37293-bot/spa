@@ -10,26 +10,25 @@
   .top{position:sticky;top:0;background:#1d1d1f;color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;z-index:50}
   .top h1{font-size:17px}
   .top .time{font-size:12px;opacity:.7;margin-top:2px}
-  .top .live{background:#2e7d32;color:#fff;font-size:11px;padding:3px 8px;border-radius:12px}
-  .top .off{background:#e53935;color:#fff;font-size:11px;padding:3px 8px;border-radius:12px}
+  .live,.off{font-size:11px;padding:3px 8px;border-radius:12px}
+  .live{background:#2e7d32;color:#fff}
+  .off{background:#e53935;color:#fff}
   .container{max-width:560px;margin:0 auto;padding:14px}
   .rooms{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .room{background:#fff;border-radius:14px;padding:14px;box-shadow:0 1px 6px rgba(0,0,0,.08)}
   .room .rname{font-size:15px;font-weight:700;margin-bottom:8px}
-  .room .tag{display:inline-block;font-size:12px;padding:3px 10px;border-radius:12px;font-weight:600}
+  .tag{display:inline-block;font-size:12px;padding:3px 10px;border-radius:12px;font-weight:600}
   .tag.free{background:#e8f5e9;color:#2e7d32}
   .tag.busy{background:#ffebee;color:#c62828}
   .room .body{margin-top:10px;font-size:13px;color:#333}
   .room .body .line{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f5f5f5}
   .room .empty{color:#aaa;font-size:13px;text-align:center;padding:14px 0}
-  .stat{background:#fff;border-radius:14px;padding:16px;margin-top:14px;box-shadow:0 1px 6px rgba(0,0,0,.08)}
-  .stat .gtitle{font-size:15px;font-weight:700;margin-bottom:10px}
+  .panel{background:#fff;border-radius:14px;padding:16px;margin-top:14px;box-shadow:0 1px 6px rgba(0,0,0,.08)}
+  .panel .gt{font-size:15px;font-weight:700;margin-bottom:10px}
   .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
   .box{background:#f5f7fa;border-radius:10px;padding:12px;text-align:center}
   .box .n{font-size:20px;font-weight:800;color:#007aff}
   .box .l{font-size:11px;color:#888;margin-top:2px}
-  .today{background:#fff;border-radius:14px;padding:16px;margin-top:14px;box-shadow:0 1px 6px rgba(0,0,0,.08)}
-  .today .tt{font-size:15px;font-weight:700;margin-bottom:10px}
   .ts{display:flex;justify-content:space-between;padding:8px;border-bottom:1px solid #f0f0f0;font-size:13px}
   .ts .tn{font-weight:600}
   .ts .tj{color:#2e7d32;font-weight:700}
@@ -43,12 +42,12 @@
     <h1>SPA 营业看板</h1>
     <div class="time" id="clock"></div>
   </div>
-  <span id="statusDot" class="live">● 实时</span>
+  <span id="statDot" class="live">● 实时</span>
 </div>
 <div class="container">
   <div class="rooms" id="roomsBox"></div>
-  <div class="stat">
-    <div class="gtitle">📊 营业汇总</div>
+  <div class="panel">
+    <div class="gt">📊 营业汇总</div>
     <div class="grid">
       <div class="box"><div class="n" id="gTotal">0</div><div class="l">总钟数</div></div>
       <div class="box"><div class="n" id="gExtra">0</div><div class="l">加钟数</div></div>
@@ -57,38 +56,32 @@
       <div class="box"><div class="n" id="gComm">0</div><div class="l">技师提成</div></div>
     </div>
   </div>
-  <div class="today">
-    <div class="tt">👤 技师提成明细</div>
+  <div class="panel">
+    <div class="gt">👤 技师提成</div>
     <div id="techList"></div>
   </div>
   <div class="upd" id="updInfo">连接中…</div>
-  <div class="foot">数据实时同步 · 每5秒刷新</div>
+  <div class="foot">实时同步 · 数据来自云端</div>
 </div>
 
 <script>
-const REPO = 'sfa37293-bot/spa';
-const API = 'https://api.github.com/repos/'+REPO+'/contents/state.json';
-
+const DBURL = 'https://spa123-da150-default-rtdb.asia-southeast1.firebasedatabase.app/';
 function dc(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-
 function fmtClock(){ const d=new Date(); return d.toLocaleDateString('zh-CN',{month:'long',day:'numeric'})+' '+d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
 
-async function fetchState(){
-  const r = await fetch(API, { headers: { 'Accept':'application/vnd.github.v3+json' } });
+async function readNode(path){
+  const r = await fetch(DBURL+path+'.json', {cache:'no-store'});
   if(!r.ok) throw new Error('HTTP '+r.status);
-  const j = await r.json();
-  const json = decodeURIComponent(escape(atob(j.content)));
-  return JSON.parse(json);
+  return r.json();
 }
 
 function renderRooms(rooms){
-  const box=document.getElementById('roomsBox');
-  box.innerHTML='';
+  const box=document.getElementById('roomsBox'); box.innerHTML='';
   rooms.forEach(room=>{
-    const busy = room.status==='busy';
+    const busy = room && room.status==='busy' && room.cur;
     const div=document.createElement('div'); div.className='room';
     let body;
-    if(busy && room.cur){
+    if(busy){
       const items = room.cur.items.map((it,i)=>`<div class="line"><span>项目${i+1}</span><span>¥${it.price}</span></div>`).join('');
       body=`<div class="line"><span>技师</span><span>${room.cur.tech}</span></div>
             <div class="line"><span>上钟</span><span>${room.cur.startTime||''}</span></div>${items}`;
@@ -101,20 +94,20 @@ function renderRooms(rooms){
 }
 
 function renderStats(records){
+  records=records||[];
   const today=dc(new Date());
   const todays=records.filter(r=>r.date===today);
-  const totalClocks=todays.reduce((s,r)=>s+((r.itemCount||1)),0);
-  const extraClocks=todays.reduce((s,r)=>s+((r.extraCount||0)),0);
-  const should=todays.reduce((s,r)=>s+((r.origTotal||r.total||0)),0);
-  const get=todays.reduce((s,r)=>s+((r.total||0)),0);
-  const comm=todays.reduce((s,r)=>s+((r.commission||0)),0);
+  const totalClocks=todays.reduce((s,r)=>s+(r.itemCount||1),0);
+  const extraClocks=todays.reduce((s,r)=>s+(r.extraCount||0),0);
+  const should=todays.reduce((s,r)=>s+(r.origTotal||r.total||0),0);
+  const get=todays.reduce((s,r)=>s+(r.total||0),0);
+  const comm=todays.reduce((s,r)=>s+(r.commission||0),0);
   document.getElementById('gTotal').textContent=totalClocks;
   document.getElementById('gExtra').textContent=extraClocks;
   document.getElementById('gShould').textContent=should;
   document.getElementById('gGet').textContent=get;
   document.getElementById('gComm').textContent=comm;
-  // 技师明细
-  const map={}; todays.forEach(r=>{ if(!map[r.tech])map[r.tech]={c:0,t:0}; map[r.tech].c+=((r.itemCount||1)); map[r.tech].t+=((r.commission||0)); });
+  const map={}; todays.forEach(r=>{ if(!map[r.tech])map[r.tech]={c:0,t:0}; map[r.tech].c+=(r.itemCount||1); map[r.tech].t+=(r.commission||0); });
   const names=Object.keys(map);
   document.getElementById('techList').innerHTML = names.length
     ? names.map(n=>`<div class="ts"><span class="tn">${n}</span><span>${map[n].c}钟</span><span class="tj">¥${map[n].t}</span></div>`).join('')
@@ -123,18 +116,18 @@ function renderStats(records){
 
 async function tick(){
   try{
-    const st=await fetchState();
+    const st = await readNode('');
+    if(!st || !st.rooms){ return; }
     renderRooms(st.rooms);
-    renderStats(st.records||[]);
-    document.getElementById('statusDot').className='live'; document.getElementById('statusDot').textContent='● 实时';
+    renderStats(st.records);
+    document.getElementById('statDot').className='live'; document.getElementById('statDot').textContent='● 实时';
     document.getElementById('updInfo').textContent='更新于 '+fmtClock();
   }catch(e){
-    document.getElementById('statusDot').className='off'; document.getElementById('statusDot').textContent='● 离线';
+    document.getElementById('statDot').className='off'; document.getElementById('statDot').textContent='● 离线';
     document.getElementById('updInfo').textContent='连接失败：'+e.message;
   }
 }
-
-function loop(){ tick(); setInterval(tick,5000); }
+function loop(){ tick(); setInterval(tick,4000); }
 document.getElementById('clock').textContent=fmtClock();
 setInterval(()=>{ document.getElementById('clock').textContent=fmtClock(); },1000);
 loop();
