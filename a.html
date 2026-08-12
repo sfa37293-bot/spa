@@ -98,6 +98,12 @@ const COMMISSION = {198:90,298:140,398:190,498:240};
 const PROJS = [198,298,398,498];
 let DB = null;
 
+// 营业日：每天11:00到次日凌晨5:00为一天。记录在11点前(凌晨)归属前一天。
+function pad2(n){return String(n).padStart(2,'0');}
+function calKey(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function bizKeyFromDate(d){ const nd=new Date(d); if(nd.getHours()<11) nd.setDate(nd.getDate()-1); return calKey(nd); }
+function currentBizKey(){ return bizKeyFromDate(new Date()); }
+
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.style.display='block';clearTimeout(toast._t);toast._t=setTimeout(()=>t.style.display='none',2200);}
 function dateKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function setSync(ok,msg){const s=document.getElementById('syncDot');s.className='syncs '+(ok?'ok':'bad');s.textContent=msg;}
@@ -179,15 +185,35 @@ function openSettle(ri){
   const cur=DB.rooms[ri].cur;
   const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=250;
   const items=cur.items.map((it,i)=>`<div class="settle-item"><div class="info"><div class="pname">项目 ${i+1}（原价 ${it.price}，提成 ${COMMISSION[it.price]}）</div></div><input type="number" value="${it.price}" data-i="${i}"></div>`).join('');
+  const origTotal=cur.items.reduce((s,it)=>s+it.price,0);
   mask.innerHTML=`<div class="modal"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
-    <h3>下钟结算 · ${cur.tech}</h3><div style="color:#888;font-size:12px;margin-bottom:8px">修改价格可做折扣，提成按原价</div>
+    <h3>下钟结算 · ${cur.tech}</h3><div style="color:#888;font-size:12px;margin-bottom:8px">修改项目价格可做折扣（提成按原价）</div>
     <div class="settle-list">${items}</div>
-    <div style="font-size:13px;font-weight:700;margin:8px 0 6px">💳 结账方式（可多选）</div>
-    <div class="projects" id="payWrap"><div class="proj">扫码</div><div class="proj">现金</div><div class="proj">美团</div></div>
+    <div style="font-size:13px;font-weight:700;margin:8px 0 6px">💳 组合结算（各方式分别填金额）</div>
+    <div class="settle-item"><div class="info"><div class="pname">现金</div></div><input id="payCash" type="number" value="0"></div>
+    <div class="settle-item"><div class="info"><div class="pname">扫码</div></div><input id="payScan" type="number" value="0"></div>
+    <div class="settle-item"><div class="info"><div class="pname">美团</div></div><input id="payMT" type="number" value="0"></div>
+    <div class="total-bar" style="background:#1d1d1f;color:#fff;border-radius:10px;padding:10px;display:flex;justify-content:space-between;align-items:center;font-weight:700"><span>应填合计</span><span id="paySumLab">¥${origTotal}</span></div>
+    <div style="color:#c62828;font-size:12px;margin-top:6px;display:none" id="payErr">⚠️ 三项金额合计与结算总额不一致（差额部分需补齐或归零）</div>
     <div class="btn-row"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">取消</button><button class="btn g" onclick="confirmOut(${ri},this.closest('.modal-mask'))">确认下钟</button></div></div>`;
-  mask.paySel=[];
-  const pw=mask.querySelector('#payWrap');
-  pw.querySelectorAll('.proj').forEach(el=>{ el.dataset.on=''; el.onclick=()=>{ if(el.classList.contains('sel')){el.classList.remove('sel');mask.paySel=mask.paySel.filter(x=>x!==el.textContent.trim());} else {el.classList.add('sel');mask.paySel.push(el.textContent.trim());} }; });
+  mask.origTotal=origTotal;
+  // 实时校验
+  function recalc(){
+    const items=mask.querySelectorAll('input[data-i]');
+    let total=0; items.forEach(x=>{total+=(parseFloat(x.value)||0);});
+    const cash=parseFloat(mask.querySelector('#payCash').value)||0;
+    const scan=parseFloat(mask.querySelector('#payScan').value)||0;
+    const mt=parseFloat(mask.querySelector('#payMT').value)||0;
+    const sum=cash+scan+mt;
+    mask.querySelector('#paySumLab').textContent='¥'+total;
+    const err=mask.querySelector('#payErr');
+    err.style.display = (Math.abs(sum-total)>0.01) ? 'block':'none';
+  }
+  mask.querySelector('.settle-list').addEventListener('input',recalc);
+  mask.querySelector('#payCash').addEventListener('input',recalc);
+  mask.querySelector('#payScan').addEventListener('input',recalc);
+  mask.querySelector('#payMT').addEventListener('input',recalc);
+  recalc();
   document.body.appendChild(mask);
 }
 async function confirmOut(ri,mask){
@@ -195,12 +221,20 @@ async function confirmOut(ri,mask){
   const inputs=mask.querySelectorAll('input[data-i]');
   const fin=[]; let total=0;
   inputs.forEach(inp=>{let v=parseFloat(inp.value)||0; fin.push(v); total+=v;});
+  // 组合支付金额
+  const cash=parseFloat(mask.querySelector('#payCash').value)||0;
+  const scan=parseFloat(mask.querySelector('#payScan').value)||0;
+  const mt=parseFloat(mask.querySelector('#payMT').value)||0;
+  const paySum=cash+scan+mt;
+  if(Math.abs(paySum-total)>0.01){
+    toast('⚠️ 组合金额合计需等于 '+total+'元'); return;
+  }
   let commission=0; cur.items.forEach(it=>{commission+=COMMISSION[it.price]||0;});
   let origTotal=0; cur.items.forEach(it=>{origTotal+=it.price;});
   const endNow=new Date();
-  const pay=(mask.paySel&&mask.paySel.length)?mask.paySel.slice():[];
+  const payArr=[]; if(cash>0)payArr.push('现金¥'+cash); if(scan>0)payArr.push('扫码¥'+scan); if(mt>0)payArr.push('美团¥'+mt);
   const itemsDetail=cur.items.map((it,i)=>({orig:it.price, fin:fin[i]||it.price}));
-  DB.records.push({date:dateKey(new Date()),time:new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}),room:DB.rooms[ri].name,tech:cur.tech,total:total,commission:commission,origTotal:origTotal,itemCount:cur.items.length,extraCount:Math.max(0,cur.items.length-1),startTime:cur.startTime||'',endTime:endNow.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),pay:pay,items:itemsDetail});
+  DB.records.push({date:currentBizKey(),time:new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}),room:DB.rooms[ri].name,tech:cur.tech,total:total,commission:commission,origTotal:origTotal,itemCount:cur.items.length,extraCount:Math.max(0,cur.items.length-1),startTime:cur.startTime||'',endTime:endNow.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),pay:payArr,items:itemsDetail});
   DB.rooms[ri].status='free'; DB.rooms[ri].cur=null;
   mask.remove(); await save(); renderRooms(); toast('✅ 已结算 共 ¥'+total);
 }
@@ -210,7 +244,7 @@ function openTech(){ document.getElementById('techMask').classList.add('show'); 
 function closeTech(){ document.getElementById('techMask').classList.remove('show'); }
 function renderRoomTimes(){
   ensureDB();
-  const todays=(DB.records||[]).filter(r=>r.date===dateKey(new Date()));
+  const todays=(DB.records||[]).filter(r=>r.date===currentBizKey());
   const roomNames=DB.rooms.map(r=>r.name);
   let html='';
   roomNames.forEach(rn=>{
@@ -238,7 +272,7 @@ function renderRoomTimes(){
 
 function renderStats(){
   ensureDB();
-  const todays=(DB.records||[]).filter(r=>r.date===dateKey(new Date()));
+  const todays=(DB.records||[]).filter(r=>r.date===currentBizKey());
   const totalClocks=todays.reduce((s,r)=>s+(r.itemCount||1),0);
   const extraClocks=todays.reduce((s,r)=>s+(r.extraCount||0),0);
   const should=todays.reduce((s,r)=>s+(r.origTotal||r.total||0),0);
