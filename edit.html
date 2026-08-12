@@ -57,6 +57,7 @@
 <div class="container">
   <div class="btn-row" style="margin-bottom:0"><button class="btn gr" onclick="openTech()">👥 技师</button></div>
   <div id="roomsBox"></div>
+  <div class="btn-row"><button class="btn gr" onclick="openWalk()">🚶 走客</button></div>
   <div style="background:#fff;border-radius:14px;padding:16px;margin-top:14px;box-shadow:0 1px 6px rgba(0,0,0,.08)">
     <div style="font-size:15px;font-weight:700;margin-bottom:10px">📊 今日营业汇总</div>
     <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
@@ -139,7 +140,7 @@ function renderRooms(){
         <div class="field"><label>项目</label><div class="projects" id="pw${ri}"></div></div>
         <div class="field"><label>客户来源（单选）</label><div class="projects" id="src${ri}"><div class="proj">美团</div><div class="proj">老客</div><div class="proj">散客</div></div></div>
         <div class="field"><label>点钟（指名技师+20提成）</label><div style="display:flex;align-items:center;justify-content:space-between;background:#fafafa;border:1px solid #ddd;border-radius:10px;padding:11px 14px"><span style="font-size:14px">是否点钟</span><span class="tag2" id="nm${ri}" onclick="toggleNamed(${ri})" style="padding:8px 22px">否</span></div><div class="hint" id="nh${ri}"></div></div>
-        <div class="btn-row"><button class="btn p" onclick="clockIn(${ri})">🔔 上钟</button><button class="btn gr" onclick="openWalk(${ri})">走客</button></div>`;
+        <div class="btn-row"><button class="btn p" onclick="clockIn(${ri})">🔔 上钟</button></div>`;
       const pw=b.querySelector('#pw'+ri);
       PROJS.forEach(p=>{const el=document.createElement('div');el.className='proj';el.innerHTML=`<span>${p}元${isPair(p)?'（双人）':''}</span><span class="price">提成 ${isPair(p)?(PAIR_COMMISSION_PER+'/人'):(COMMISSION[p]+'元')}</span>`;el.onclick=()=>{pw.querySelectorAll('.proj').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');pw.dataset.sel=p;updateTechHint(ri);};pw.appendChild(el);});
       const sw=b.querySelector('#src'+ri);
@@ -244,25 +245,28 @@ async function addClock(ri){
   DB.rooms[ri].cur.items.push({price:selPrice,techs:picked.slice()});
   await save(); renderRooms(); toast('✅ 已加钟');
 }
-function openWalk(ri){
+function openWalk(){
   const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=250;
-  const room=DB.rooms[ri];
   const techOpts=DB.techs.map(t=>`<option>${t}</option>`).join('');
+  const roomOpts=DB.rooms.map(r=>`<option>${r.name}</option>`).join('');
   mask.innerHTML=`<div class="modal"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
-    <h3>🚶 走客记录 · ${room.name}</h3>
+    <h3>🚶 走客记录</h3>
     <div style="color:#888;font-size:13px;margin:4px 0 10px">客人未上钟直接离开，不计营业、无提成，仅记走客。</div>
+    <div class="field"><label>房间</label><select id="wkRoom">${roomOpts}</select></div>
     <div class="field"><label>接待技师（选填）</label><select id="wkTech">${techOpts}</select></div>
-    <div class="field"><label>走客原因（备注）</label><input id="wkReason" placeholder="如：嫌贵／问价走了／约满等"></div>
     <div class="field"><label>客户来源（选填）</label><select id="wkSrc"><option>未选</option><option>美团</option><option>老客</option><option>散客</option></select></div>
-    <div class="btn-row"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">取消</button><button class="btn r" onclick="confirmWalk(${ri},this.closest('.modal-mask'))">确认走客</button></div></div>`;
+    <div class="field"><label>走客原因（备注）</label><input id="wkReason" placeholder="如：嫌贵／问价走了／约满等"></div>
+    <div class="btn-row"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">取消</button><button class="btn r" onclick="confirmWalk(this.closest('.modal-mask'))">确认走客</button></div></div>`;
   document.body.appendChild(mask);
 }
-async function confirmWalk(ri,mask){
+async function confirmWalk(mask){
+  const roomName=(mask.querySelector('#wkRoom')||{}).value||DB.rooms[0].name;
   const tech=(mask.querySelector('#wkTech')||{}).value||'';
-  const reason=(mask.querySelector('#wkReason')||{}).value||'';
   const src=(mask.querySelector('#wkSrc')||{}).value||'未选';
+  const reason=(mask.querySelector('#wkReason')||{}).value||'';
   const endNow=new Date();
-  DB.records.push({date:currentBizKey(),time:new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}),room:DB.rooms[ri].name,techs:tech?[tech]:[],total:0,commission:0,origTotal:0,itemCount:1,extraCount:0,startTime:endNow.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),endTime:endNow.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),pay:[],items:[],source:src==='未选'?'':src,isWalk:true,walkReason:reason});
+  const t=e=>e.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
+  DB.records.push({date:currentBizKey(),time:t(endNow),room:roomName,techs:tech?[tech]:[],total:0,commission:0,origTotal:0,itemCount:1,extraCount:0,startTime:t(endNow),endTime:t(endNow),pay:[],items:[],source:src==='未选'?'':src,isWalk:true,walkReason:reason});
   mask.remove(); await save(); renderRooms(); toast('🚶 已记走客');
 }
 function openReturn(ri){
