@@ -120,8 +120,9 @@ function ensureDB(){
 }
 
 async function init(){
-  try{ const d=await readAll(); if(d&&d.rooms)DB=d; else ensureDB(); }
-  catch(e){ ensureDB(); }
+  try{ const d=await readAll(); if(d&&d.rooms)DB=d; }
+  catch(e){}
+  ensureDB();
   renderRooms(); renderTechTags(); setSync(true,'● 已同步');
 }
 
