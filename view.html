@@ -292,11 +292,12 @@ function renderRoomTimes(records,rooms){
           }).join('')||`1. ${r.itemCount||1}钟`;
           const pay=(r.pay&&r.pay.length)?r.pay.join('/'):'--';
           const note=r.note?`<div style="color:#888">备注：${r.note}</div>`:'';
+          const editTxt=r.editRemark?`<div style="color:#6a1b9a">✎ 改钟：${r.editRemark}</div>`:'';
           const namedTxt=(r.named&&r.namedTech)?`<div style="color:#e65100">⭐ 点钟：${r.namedTech} +20</div>`:'';
           const srcTxt=r.source?`<div style="color:#555">客户来源：${r.source}</div>`:'';
           return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px">
             <div style="font-weight:600;color:#333">技师：${techs}</div>
-            <div style="color:#555">${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</div>${itHtml}${namedTxt}${srcTxt}
+            <div style="color:#555">${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</div>${itHtml}${namedTxt}${srcTxt}${editTxt}
             <div style="color:#555">结账：${pay}</div>
             <div style="color:#888">应收 ¥${r.origTotal||0} → 实收 ¥${r.total||0}（提成合计 ¥${r.commission||0}）</div>${note}
           </div>`;
@@ -365,11 +366,12 @@ function renderDayDetail(rows){
       </div>`;
     }
     const note=r.note?`<div style="color:#888">备注：${r.note}</div>`:'';
+    const editTxt=r.editRemark?`<div style="color:#6a1b9a">✎ 改钟：${r.editRemark}</div>`:'';
     const namedTxt=(r.named&&r.namedTech)?`<div style="color:#e65100">⭐ 点钟：${r.namedTech} +20</div>`:'';
     return `<div style="padding:4px 0;border-bottom:1px dashed #e5e5ea">
       <div style="font-weight:600">${r.room}·${techs}</div>
       <div style="color:#555">${r.startTime||'--'}上→${r.endTime||'--'}下 ｜ ${items}</div>
-      <div style="color:#555">结账：${pay} ｜ 应收¥${r.origTotal||0}→实收¥${r.total||0}</div>${namedTxt}${note}
+      <div style="color:#555">结账：${pay} ｜ 应收¥${r.origTotal||0}→实收¥${r.total||0}</div>${namedTxt}${editTxt}${note}
     </div>`;
   }).join('');
   return h;
