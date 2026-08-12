@@ -68,6 +68,8 @@
     </div>
     <div style="font-size:15px;font-weight:700;margin:16px 0 8px">🕒 房间上下钟明细</div>
     <div id="eRoomTimes"></div>
+    <div style="font-size:15px;font-weight:700;margin:16px 0 8px">🧭 客户来源</div>
+    <div id="eSourceStats"></div>
   </div>
   <div class="foot">录入自动同步 · B机看板实时显示</div>
 </div>
@@ -135,10 +137,13 @@ function renderRooms(){
       b.innerHTML=`
         <div class="field"><label>选择技师（双人798需选2人）</label><div class="tags" id="tk${ri}">${DB.techs.map((t,i)=>`<span class="tag2" data-i="${i}" onclick="toggleTechPick(${ri},${i})">${t}</span>`).join('')}</div><div class="hint" id="th${ri}"></div></div>
         <div class="field"><label>项目</label><div class="projects" id="pw${ri}"></div></div>
+        <div class="field"><label>客户来源（单选）</label><div class="projects" id="src${ri}"><div class="proj">美团</div><div class="proj">老客</div><div class="proj">散客</div></div></div>
         <div class="field"><label>点钟（指名技师+20提成）</label><div style="display:flex;align-items:center;justify-content:space-between;background:#fafafa;border:1px solid #ddd;border-radius:10px;padding:11px 14px"><span style="font-size:14px">是否点钟</span><span class="tag2" id="nm${ri}" onclick="toggleNamed(${ri})" style="padding:8px 22px">否</span></div><div class="hint" id="nh${ri}"></div></div>
         <div class="btn-row"><button class="btn p" onclick="clockIn(${ri})">🔔 上钟</button></div>`;
       const pw=b.querySelector('#pw'+ri);
       PROJS.forEach(p=>{const el=document.createElement('div');el.className='proj';el.innerHTML=`<span>${p}元${isPair(p)?'（双人）':''}</span><span class="price">提成 ${isPair(p)?(PAIR_COMMISSION_PER+'/人'):(COMMISSION[p]+'元')}</span>`;el.onclick=()=>{pw.querySelectorAll('.proj').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');pw.dataset.sel=p;updateTechHint(ri);};pw.appendChild(el);});
+      const sw=b.querySelector('#src'+ri);
+      if(sw){ sw.querySelectorAll('.proj').forEach(el=>{ el.onclick=()=>{ sw.querySelectorAll('.proj').forEach(x=>x.classList.remove('sel')); el.classList.add('sel'); sw.dataset.sel=el.textContent.trim(); }; }); }
     } else {
       const cur=room.cur;
       const techsStr=(cur.techs||[cur.tech]).join('、');
@@ -158,7 +163,7 @@ function renderRooms(){
     }
     d.appendChild(b); box.appendChild(d);
   });
-  renderStats(); renderRoomTimes();
+  renderStats(); renderRoomTimes(); renderSourceStats();
 }
 function toggleTechPick(ri,i){
   const h=document.getElementById('tk'+ri); if(!h)return;
@@ -199,10 +204,13 @@ async function clockIn(ri){
   const picked=getPickedTechs(ri);
   if(isPair(selPrice) && picked.length !== 2){ toast('⚠️ 双人项目需选2名技师'); return; }
   if(!isPair(selPrice) && picked.length !== 1){ toast('⚠️ 请选择1名技师'); return; }
-  DB.rooms[ri].status='busy';
   const named=!!namedFlags[ri];
   const firstTech=picked[0]||'';
-  DB.rooms[ri].cur={techs:picked,startTime:new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),items:[{price:selPrice,techs:picked.slice()}],named:named,namedTech:named?firstTech:''};
+  const sw=document.getElementById('src'+ri);
+  const source=(sw&&sw.dataset.sel)?sw.dataset.sel:'';
+  if(!source){ toast('⚠️ 请选择客户来源'); return; }
+  DB.rooms[ri].status='busy';
+  DB.rooms[ri].cur={techs:picked,startTime:new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),items:[{price:selPrice,techs:picked.slice()}],named:named,namedTech:named?firstTech:'',source:source};
   namedFlags[ri]=false;
   await save(); renderRooms(); toast('✅ 上钟成功');
 }
@@ -305,7 +313,7 @@ async function confirmOut(ri,mask){
   const payArr=[]; if(cash>0)payArr.push('现金¥'+cash); if(scan>0)payArr.push('扫码¥'+scan); if(mt>0)payArr.push('美团¥'+mt);
   const itemsDetail=cur.items.map((it,i)=>({orig:it.price, fin:fin[i]||it.price, techs:it.techs||[]}));
   const note=(mask.querySelector('#settleNote')||{}).value||'';
-  DB.records.push({date:currentBizKey(),time:new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}),room:DB.rooms[ri].name,techs:(cur.techs||[cur.tech]),total:total,commission:commission,origTotal:origTotal,itemCount:cur.items.length,extraCount:Math.max(0,cur.items.length-1),startTime:cur.startTime||'',endTime:endNow.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),pay:payArr,items:itemsDetail,note:note,named:named,namedTech:namedTech});
+  DB.records.push({date:currentBizKey(),time:new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}),room:DB.rooms[ri].name,techs:(cur.techs||[cur.tech]),total:total,commission:commission,origTotal:origTotal,itemCount:cur.items.length,extraCount:Math.max(0,cur.items.length-1),startTime:cur.startTime||'',endTime:endNow.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),pay:payArr,items:itemsDetail,note:note,named:named,namedTech:namedTech,source:cur.source||''});
   DB.rooms[ri].status='free'; DB.rooms[ri].cur=null;
   mask.remove(); await save(); renderRooms(); toast('✅ 已结算 共 ¥'+total);
 }
@@ -341,15 +349,29 @@ function renderRoomTimes(){
       const pay=(r.pay&&r.pay.length)?r.pay.join('/'):'--';
       const note=r.note?`<div style="color:#888">备注：${r.note}</div>`:'';
       const namedTxt=(r.named&&r.namedTech)?`<div style="color:#e65100">⭐ 点钟：${r.namedTech} +20</div>`:'';
+      const srcTxt=r.source?`<div style="color:#555">客户来源：${r.source}</div>`:'';
       return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px;color:#333">
         <div style="font-weight:600">${i+1}. 技师：${(r.techs||[r.tech]).join('、')}</div>
-        <div style="color:#555">🕒 ${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</div>${itHtml}${namedTxt}
+        <div style="color:#555">🕒 ${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</div>${itHtml}${namedTxt}${srcTxt}
         <div style="color:#555">结账：${pay||'--'}</div>
         <div style="color:#888">应收 ¥${r.origTotal||0} → 实收 ¥${r.total||0}（提成合计 ¥${r.commission||0}）</div>${note}</div>`;
     }).join('');
     html+='</div>';
   });
   document.getElementById('eRoomTimes').innerHTML = html || '<div style="color:#aaa;padding:10px">暂无数据</div>';
+}
+function renderSourceStats(){
+  ensureDB();
+  const srcMap={};
+  (DB.records||[]).filter(r=>r.date===currentBizKey() && !r.isReturn).forEach(r=>{
+    const s=r.source||'未选';
+    if(!srcMap[s]) srcMap[s]={c:0,t:0};
+    srcMap[s].c+=1; srcMap[s].t+=(r.total||0);
+  });
+  const names=Object.keys(srcMap);
+  document.getElementById('eSourceStats').innerHTML = names.length
+    ? names.map(n=>`<div style="display:flex;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px"><span style="font-weight:600">${n}</span><span>${srcMap[n].c}单</span><span style="color:#007aff">¥${srcMap[n].t}</span></div>`).join('')
+    : '<div style="color:#aaa;text-align:center;padding:10px">暂无数据</div>';
 }
 function renderStats(){
   ensureDB();
@@ -396,7 +418,7 @@ function renderTechTags(){
 async function addTech(){ const inp=document.getElementById('newTech'); const name=inp.value.trim(); if(!name){toast('请输入姓名');return;} DB.techs.push(name); inp.value=''; await save(); renderTechTags(); renderRooms(); toast('✅ 已添加'); }
 async function delTech(i){ DB.techs.splice(i,1); await save(); renderTechTags(); renderRooms(); toast('已删除'); }
 
-setInterval(async()=>{ try{ const d=await readAll(); if(d&&d.rooms){ DB.techs=d.techs||DB.techs; DB.records=d.records||DB.records; renderTechTags(); renderStats(); renderRoomTimes(); } }catch(e){} },8000);
+setInterval(async()=>{ try{ const d=await readAll(); if(d&&d.rooms){ DB.techs=d.techs||DB.techs; DB.records=d.records||DB.records; renderTechTags(); renderStats(); renderRoomTimes(); renderSourceStats(); } }catch(e){} },8000);
 
 init();
 </script>
