@@ -293,11 +293,9 @@ function confirmEditItems(ri,mask){
 }
 function openWalk(){
   const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=250;
-  const roomOpts=DB.rooms.map(r=>`<option>${r.name}</option>`).join('');
   mask.innerHTML=`<div class="modal"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
     <h3>🚶 走客记录</h3>
     <div style="color:#888;font-size:13px;margin:4px 0 10px">客人未上钟直接离开，不计营业、无提成，仅记走客。带*为必填。</div>
-    <div class="field"><label>房间</label><select id="wkRoom">${roomOpts}</select></div>
     <div class="field"><label><span style="color:#c62828">* </span>客户来源（必选，单选）</label><div class="projects" id="wkSrcWrap"><div class="proj">美团</div><div class="proj">老客</div><div class="proj">散客</div></div></div>
     <div class="field"><label><span style="color:#c62828">* </span>试钟技师（必选，可多选）</label><div class="tags" id="wkTechWrap">${DB.techs.map((t,i)=>`<span class="tag2" data-t="${t}" onclick="wkTechPick(this)">${t}</span>`).join('')}</div><div class="hint" id="wkTechHint"></div></div>
     <div class="field"><label><span style="color:#c62828">* </span>走客原因（必填，备注）</label><input id="wkReason" placeholder="如：嫌贵／约满／试了几位技师都不满意等"></div>
@@ -316,7 +314,7 @@ function wkTechPick(el){
   const h=mask.querySelector('#wkTechHint'); if(h) h.textContent=mask.techVals.length?('已选：'+mask.techVals.join('、')):'⚠️ 请选择试钟技师';
 }
 async function confirmWalk(mask){
-  const roomName=(mask.querySelector('#wkRoom')||{}).value||DB.rooms[0].name;
+  const roomName='';
   const src=mask.srcVal||'';
   const walkTechs=mask.techVals||[];
   const reason=((mask.querySelector('#wkReason')||{}).value||'').trim();
