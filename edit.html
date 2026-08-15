@@ -403,9 +403,45 @@ async function confirmOut(ri,mask){
 function openTech(){ document.getElementById('techMask').classList.add('show'); renderTechTags(); }
 function closeTech(){ document.getElementById('techMask').classList.remove('show'); }
 
+function editRecordTechs(idx){
+  const r=DB.records[idx]; if(!r) return;
+  const pair=(r.items||[]).some(it=>it.orig===798);
+  const need=pair?2:1;
+  const sel=new Set(r.techs||[r.tech]);
+  const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=260;
+  const tags=DB.techs.map((t,i)=>`<span class="tag2 ${sel.has(t)?'on':''}" data-t="${t}" onclick="etPick(this,${need})">${t}</span>`).join('');
+  mask.innerHTML=`<div class="modal"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
+    <h3>✎ 改技师</h3>
+    <div style="color:#888;font-size:12px;margin-bottom:8px">${pair?'双人项目需选2名技师':'选择1名技师'}</div>
+    <div class="field"><label>技师</label><div class="tags" id="etTags">${tags}</div><div class="hint" id="etHint"></div></div>
+    <div class="btn-row"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">取消</button><button class="btn g" onclick="etSave(${idx},this.closest('.modal-mask'),${need})">保存</button></div></div>`;
+  etNeed=need; etHint(mask,need);
+  document.body.appendChild(mask);
+}
+let etNeed=1;
+function etPick(el,need){
+  el.classList.toggle('on');
+  const cnt=document.querySelectorAll('#etTags .tag2.on').length;
+  if(cnt>need){ el.classList.remove('on'); document.getElementById('etHint').textContent='最多选 '+need+' 名'; }
+  else { document.getElementById('etHint').textContent=cnt===need?'✅ 已选 '+need+' 人':(need===2?(cnt<2?'还需选 '+(2-cnt)+' 人':''):'还需选1人'); }
+}
+function etHint(mask,need){
+  const h=mask.querySelector('#etHint'); if(!h) return;
+  const cnt=mask.querySelectorAll('#etTags .tag2.on').length;
+  h.textContent=cnt===need?'✅ 已选 '+need+' 人':(need===2?(cnt<2?'还需选 '+(2-cnt)+' 人':''):'还需选1人');
+}
+async function etSave(idx,mask,need){
+  const picked=[]; mask.querySelectorAll('#etTags .tag2.on').forEach(el=>picked.push(el.getAttribute('data-t')));
+  if(picked.length!==need){ toast('⚠️ 请选择 '+need+' 名技师'); return; }
+  const r=DB.records[idx]; if(!r){ mask.remove(); return; }
+  r.techs=picked.slice();
+  (r.items||[]).forEach(it=>{ if(it.orig===798){ it.techs=picked; } else if(r.items.length===1){ it.techs=picked.slice(0,1); } else { it.techs=[picked[0]]; } });
+  mask.remove(); await save(); renderRoomTimes(); renderStats(); renderSourceStats(); toast('✅ 技师已改为 '+picked.join('、'));
+}
+
 function renderRoomTimes(){
   ensureDB();
-  const todays=(DB.records||[]).filter(r=>r.date===currentBizKey());
+  const todays=(DB.records||[]).map((r,i)=>({...r,_idx:i})).filter(r=>r.date===currentBizKey());
   const roomNames=DB.rooms.map(r=>r.name);
   let html='';
   roomNames.forEach(rn=>{
@@ -441,7 +477,7 @@ function renderRoomTimes(){
       const namedTxt=(r.named&&r.namedTech)?`<div style="color:#e65100">⭐ 点钟：${r.namedTech} +20</div>`:'';
       const srcTxt=r.source?`<div style="color:#555">客户来源：${r.source}</div>`:'';
       return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px;color:#333">
-        <div style="font-weight:600">${i+1}. 技师：${(r.techs||[r.tech]).join('、')}</div>
+        <div style="font-weight:600">${i+1}. 技师：${(r.techs||[r.tech]).join('、')} <button class="btn gr" style="padding:1px 8px;font-size:11px;margin-left:6px" onclick="editRecordTechs(${r._idx})">✎ 改技师</button></div>
         <div style="color:#555">🕒 ${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</div>${itHtml}${namedTxt}${srcTxt}${editTxt}
         <div style="color:#555">结账：${pay||'--'}</div>
         <div style="color:#888">应收 ¥${r.origTotal||0} → 实收 ¥${r.total||0}（提成合计 ¥${r.commission||0}）</div>${note}</div>`;
