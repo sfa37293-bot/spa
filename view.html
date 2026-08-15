@@ -83,7 +83,10 @@
     <div id="weekList"></div>
   </div>
   <div class="upd" id="updInfo">连接中…</div>
-  <div class="btn-row" style="margin-top:14px"><button class="btn" style="background:#1d1d1f" onclick="openMonthly()">📅 月度统计（近30天）</button></div>
+  <div class="btn-row" style="margin-top:14px">
+    <button class="btn" style="background:#1d1d1f" onclick="openMonthly()">📅 月度营业统计</button>
+    <button class="btn" style="background:#1c7b3f" onclick="openTechMonthly()">📋 技师每日提成月报</button>
+  </div>
   <div class="foot">实时同步 · 数据来自云端</div>
 </div>
 
@@ -155,6 +158,103 @@ function renderStats(records){
 }
 let viewTechMap={};
 let viewTraffic={rooms:[],rets:[],walks:[]};
+// 技师提成月报：近30天每天每人提成
+function openTechMonthly(){
+  const records=viewRecords||[];
+  const now=new Date();
+  const days=[];
+  for(let i=29;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i); days.push(bizKeyFromDate(d)); }
+  const CMAP={198:90,298:140,398:190,498:240};
+  // 统计：tech -> day -> 金额；同时记每天钟数方便排错
+  const techMap={};
+  const dayIdx={};
+  days.forEach((k,ix)=>dayIdx[k]=ix);
+  records.forEach(r=>{
+    const ix=dayIdx[r.date];
+    if(ix===undefined) return;
+    if(r.isReturn||r.isWalk) return; // 退钟/走客无提成
+    (r.items||[]).forEach(it=>{
+      const techs=it.techs&&it.techs.length?it.techs:(r.techs||[]);
+      if(it.orig===798){
+        techs.forEach(tn=>{ if(!techMap[tn])techMap[tn]={days:new Array(30).fill(0),tot:0,c:0}; techMap[tn].days[ix]+=190; techMap[tn].tot+=190; techMap[tn].c+=1; });
+      } else {
+        const c=CMAP[it.orig]||0; if(!c) return;
+        const per=techs.length?Math.round(c/techs.length):c;
+        (techs.length?techs:[r.tech]).forEach(tn=>{ if(!tn)return; if(!techMap[tn])techMap[tn]={days:new Array(30).fill(0),tot:0,c:0}; techMap[tn].days[ix]+=per; techMap[tn].tot+=per; techMap[tn].c+=1; });
+      }
+    });
+    if(r.named&&r.namedTech&&techMap){
+      if(!techMap[r.namedTech])techMap[r.namedTech]={days:new Array(30).fill(0),tot:0,c:0};
+      techMap[r.namedTech].days[ix]+=20; techMap[r.namedTech].tot+=20; techMap[r.namedTech].named=(techMap[r.namedTech].named||0)+1;
+    }
+  });
+  const names=Object.keys(techMap).sort((a,b)=>techMap[b].tot-techMap[a].tot);
+  // 生成表头：斜着展示日期+m/d
+  let head='<tr><td style="padding:6px;border:1px solid #c4ccd8;background:#3a4270;color:#fff;font-weight:700;white-space:nowrap;position:sticky;left:0;z-index:2">技师</td>';
+  days.forEach((k,ix)=>{
+    const m=k.slice(5).replace('-','/');
+    head+=`<td style="padding:6px;border:1px solid #c4ccd8;background:#59648f;color:#fff;font-weight:700;font-size:11px;text-align:center;white-space:nowrap">${m}</td>`;
+  });
+  head+=`<td style="padding:6px;border:1px solid #c4ccd8;background:#2e7d32;color:#fff;font-weight:800;white-space:nowrap">合计</td></tr>`;
+  // 行：每个技师
+  let body='';
+  if(!names.length) body='<tr><td colspan="32" style="padding:14px;text-align:center;color:#aaa">近30天暂无提成数据</td></tr>';
+  names.forEach((n,ri)=>{
+    const tm=techMap[n];
+    let cells='';
+    days.forEach((k,ix)=>{
+      const v=tm.days[ix];
+      cells+=`<td style="padding:5px;border:1px solid #d9dfe8;text-align:center;white-space:nowrap;${v?`color:#1c7b3f;font-weight:700;background:${ri%2?'#f2f8f3':'#eaf5ec'}`:'color:#c7cdd8'}">${v?('¥'+v):'·'}</td>`;
+    });
+    body+=`<tr><td style="padding:6px;border:1px solid #d9dfe8;font-weight:700;white-space:nowrap;position:sticky;left:0;background:#f7f8fb">${n}${tm.named?(`<span style="color:#e65100;font-size:10px">★${tm.named}点</span>`):''}</td>${cells}<td style="padding:6px;border:1px solid #c4ccd8;background:#e2e7f0;color:#33415e;font-weight:800;text-align:center">¥${tm.tot}</td></tr>`;
+  });
+  // 每天合计行
+  let dayTot='<tr><td style="padding:6px;border:1px solid #c4ccd8;background:#474f7e;color:#fff;font-weight:800">当日合计</td>';
+  let grand=0;
+  days.forEach((k,ix)=>{
+    let s=0; names.forEach(n=>s+=techMap[n].days[ix]); grand+=s;
+    const style=s?{bg:'#dce9f7',c:'#0d47a1'}:{bg:'#eef1f6',c:'#8a93a6'};
+    dayTot+=`<td style="padding:5px;border:1px solid #c4ccd8;background:${style.bg};color:${style.c};font-weight:800;text-align:center">${s?('¥'+s):'·'}</td>`;
+  });
+  dayTot+=`<td style="padding:6px;border:1px solid #c4ccd8;background:#2e7d32;color:#fff;font-weight:800;text-align:center">¥${grand}</td></tr>`;
+  const mask=document.createElement('div');
+  mask.className='modal-mask show'; mask.style.zIndex=285;
+  mask.innerHTML=`<div class="modal" style="max-width:100%;width:96vw"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
+    <h3>📋 技师每日提成月报（近30天）</h3>
+    <div style="color:#8792a6;font-size:11px;padding:0 0 6px">行=技师｜列=营业日（凌晨11点前归前一天）｜绿格=当日提成｜★=点钟次数｜下拉选择技师看明细</div>
+    <div style="overflow:auto;max-height:52vh;-webkit-overflow-scrolling:touch;border:1px solid #d9dfe8;border-radius:8px">
+      <table style="border-collapse:collapse;font-size:12px;min-width:960px;width:100%">
+        <thead>${head}</thead>
+        <tbody>${body}${dayTot}</tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px;font-size:13px;font-weight:700;color:#37415c">👤 按技师查看每日提成：</div>
+    <div id="techDrill"></div>
+    <div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div>
+  </div>`;
+  document.body.appendChild(mask);
+  // 生成下拉明细区
+  const drillBox=document.getElementById('techDrill');
+  if(!names.length){ drillBox.innerHTML='<div style="color:#aaa;font-size:12px">无可选技师</div>'; return; }
+  let selHtml='<select id="techSel" style="padding:8px;border-radius:8px;border:1px solid #d9dfe8;font-size:13px;width:100%">';
+  names.forEach(n=>{ selHtml+=`<option value="${n}">${n}（30天合计 ¥${techMap[n].tot}）</option>`; });
+  selHtml+='</select><div id="techDrillBody" style="margin-top:8px"></div>';
+  drillBox.innerHTML=selHtml;
+  const sel=document.getElementById('techSel');
+  sel.onchange=()=>renderTechDrill(sel.value, techMap, days);
+  renderTechDrill(sel.value, techMap, days);
+}
+function renderTechDrill(name, techMap, days){
+  const tm=techMap[name]; if(!tm){document.getElementById('techDrillBody').innerHTML='';return;}
+  let rows='';
+  for(let i=0;i<30;i++){
+    if(!tm.days[i]) continue;
+    rows+=`<div class="ts" style="border:none"><span>${days[i].slice(5)}</span><span style="color:#1c7b3f;font-weight:800">¥${tm.days[i]}</span></div>`;
+  }
+  document.getElementById('techDrillBody').innerHTML= rows
+    ? `<div style="font-weight:700;color:#2d3561;padding:4px 0;font-size:13px">${name} 近30天每日提成：</div>`+rows+`<div class="ts" style="border:none;border-top:1px solid #e5e5ea;margin-top:4px"><span style="font-weight:800">合计</span><span style="color:#0d47a1;font-weight:800">¥${tm.tot}</span></div>`
+    : '<div style="color:#aaa;font-size:12px;padding:6px">该技师近30天无提成</div>';
+}
 function openTraffic(){
   const d=viewTraffic||{rooms:[],rets:[],walks:[]};
   const rooms=(d.rooms||[]).map((r,i)=>`<div class="ts" style="border:none"><span>${i+1}. ${r.room}·${(r.techs||[r.tech]).join('、')}</span><span style="color:#555">${r.startTime||''} 实收¥${r.total||0}</span></div>`).join('')||'<div style="color:#aaa;text-align:center;padding:8px">今日暂无开房</div>';
