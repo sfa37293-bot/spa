@@ -362,18 +362,17 @@ function openSettle(ri){
     <div class="settle-item"><div class="info"><div class="pname">现金</div></div><input id="payCash" type="number" value="0"></div>
     <div class="settle-item"><div class="info"><div class="pname">扫码</div></div><input id="payScan" type="number" value="0"></div>
     <div class="settle-item"><div class="info"><div class="pname">美团</div></div><input id="payMT" type="number" value="0"></div>
-    <div class="total-bar" style="background:#1d1d1f;color:#fff;border-radius:10px;padding:10px;display:flex;justify-content:space-between;align-items:center;font-weight:700"><span>应填合计</span><span id="paySumLab">¥${origTotal}</span></div>
+    <div class="total-bar" style="background:#1d1d1f;color:#fff;border-radius:10px;padding:10px;display:flex;justify-content:space-between;align-items:center;font-weight:700"><span>实际结账金额</span><input id="payTotal" type="number" step="0.01" value="${origTotal}" style="width:150px;padding:6px;border-radius:6px;border:none;font-size:15px;font-weight:700;text-align:right"></div>
     <div style="color:#c62828;font-size:12px;margin-top:6px;display:none" id="payErr">⚠️ 三项金额合计与结算总额不一致</div>
     <div class="field" style="margin-top:10px"><label>备注（折扣原因等）</label><input id="settleNote" placeholder="如：老客折价 / 会员优惠等"></div>
     <div class="btn-row"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">取消</button><button class="btn g" onclick="confirmOut(${ri},this.closest('.modal-mask'))">确认下钟</button></div></div>`;
   mask.origTotal=origTotal;
   function recalc(){
-    let total=0; mask.querySelectorAll('input[data-i]').forEach(x=>{total+=(parseFloat(x.value)||0);});
+    const total=parseFloat(mask.querySelector('#payTotal').value)||0;
     const sum=(parseFloat(mask.querySelector('#payCash').value)||0)+(parseFloat(mask.querySelector('#payScan').value)||0)+(parseFloat(mask.querySelector('#payMT').value)||0);
-    mask.querySelector('#paySumLab').textContent='¥'+total;
     mask.querySelector('#payErr').style.display=(Math.abs(sum-total)>0.01)?'block':'none';
   }
-  mask.querySelector('.settle-list').addEventListener('input',recalc);
+  mask.querySelector('#payTotal').addEventListener('input',recalc);
   mask.querySelector('#payCash').addEventListener('input',recalc);
   mask.querySelector('#payScan').addEventListener('input',recalc);
   mask.querySelector('#payMT').addEventListener('input',recalc);
@@ -382,7 +381,8 @@ function openSettle(ri){
 async function confirmOut(ri,mask){
   const cur=DB.rooms[ri].cur;
   const inputs=mask.querySelectorAll('input[data-i]');
-  const fin=[]; let total=0; inputs.forEach(inp=>{let v=parseFloat(inp.value)||0; fin.push(v); total+=v;});
+  const fin=[]; inputs.forEach(inp=>{let v=parseFloat(inp.value)||0; fin.push(v);});
+  const total=parseFloat(mask.querySelector('#payTotal').value)||0;
   const cash=parseFloat(mask.querySelector('#payCash').value)||0;
   const scan=parseFloat(mask.querySelector('#payScan').value)||0;
   const mt=parseFloat(mask.querySelector('#payMT').value)||0;
