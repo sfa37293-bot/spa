@@ -403,40 +403,118 @@ async function confirmOut(ri,mask){
 function openTech(){ document.getElementById('techMask').classList.add('show'); renderTechTags(); }
 function closeTech(){ document.getElementById('techMask').classList.remove('show'); }
 
-function editRecordTechs(idx){
+function editRecordFull(idx){
   const r=DB.records[idx]; if(!r) return;
   const pair=(r.items||[]).some(it=>it.orig===798);
   const need=pair?2:1;
-  const sel=new Set(r.techs||[r.tech]);
   const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=260;
-  const tags=DB.techs.map((t,i)=>`<span class="tag2 ${sel.has(t)?'on':''}" data-t="${t}" onclick="etPick(this,${need})">${t}</span>`).join('');
+  // 技师 tags
+  const curTechs=r.techs||[r.tech];
+  const tags=DB.techs.map(t=>`<span class="tag2 ${curTechs.indexOf(t)>=0?'on':''}" data-t="${t}" onclick="efPick(this)">${t}</span>`).join('');
+  // 项目编辑
+  const itemRows=(r.items||[]).map((it,i)=>{
+    const priceOpts=PROJS.map(p=>`<option value="${p}" ${p===it.orig?'selected':''}>${p}元${isPair(p)?'(双人)':''}</option>`).join('');
+    return `<div style="border:1px solid #eee;border-radius:8px;padding:8px;margin-bottom:8px">
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <select data-p="${i}" style="flex:1;min-width:110px;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px" onchange="efRecheck(event)">${priceOpts}</select>
+        <span style="color:#888;font-size:12px">实收</span>
+        <input type="number" data-f="${i}" value="${it.fin!==undefined?it.fin:it.orig}" style="width:85px;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px">
+        <span style="color:#888;font-size:12px">技师</span>
+        <input type="text" data-it="${i}" value="${(it.techs&&it.techs.length)?it.techs.join('/'):curTechs.join('/')}" style="width:90px;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px">
+      </div>
+    </div>`;
+  }).join('') || '<div style="color:#aaa;text-align:center;padding:10px">无项目</div>';
+  // 收款
+  const pays=r.pay||[];
+  let cash=0,scan=0,mt=0;
+  pays.forEach(p=>{ if(p.indexOf('现金')>=0) cash=parseFloat(p.replace(/[^0-9.]/g,''))||0; if(p.indexOf('扫码')>=0) scan=parseFloat(p.replace(/[^0-9.]/g,''))||0; if(p.indexOf('美团')>=0) mt=parseFloat(p.replace(/[^0-9.]/g,''))||0; });
+  if(cash+scan+mt===0){ cash=r.total||0; }
+  const total=(r.total||0);
+  const srcOpts=['美团','老客','散客'].map(s=>`<option ${s===(r.source||'')?'selected':''}>${s}</option>`).join('');
   mask.innerHTML=`<div class="modal"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
-    <h3>✎ 改技师</h3>
-    <div style="color:#888;font-size:12px;margin-bottom:8px">${pair?'双人项目需选2名技师':'选择1名技师'}</div>
-    <div class="field"><label>技师</label><div class="tags" id="etTags">${tags}</div><div class="hint" id="etHint"></div></div>
-    <div class="btn-row"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">取消</button><button class="btn g" onclick="etSave(${idx},this.closest('.modal-mask'),${need})">保存</button></div></div>`;
-  etNeed=need; etHint(mask,need);
+    <h3>✎ 改整单</h3>
+    <div class="field"><label>技师（${pair?'双人选2人':'选1人'}，也可在各项目里单独改）</label><div class="tags" id="etTags">${tags}</div><div class="hint" id="etHint"></div></div>
+    <div class="field"><label>项目与实收（选项目改原价，实收改折扣）</label>${itemRows}</div>
+    <div class="field"><label>实收总额 &amp; 收款方式</label>
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px"><span style="font-size:13px">总额</span><input id="efTotal" type="number" step="0.01" value="${total}" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:14px;font-weight:700" oninput="efRecheck(event)"></div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span style="font-size:13px">现金</span><input id="efCash" type="number" value="${cash}" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px" oninput="efRecheck(event)">
+        <span style="font-size:13px">扫码</span><input id="efScan" type="number" value="${scan}" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px" oninput="efRecheck(event)">
+        <span style="font-size:13px">美团</span><input id="efMT" type="number" value="${mt}" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px" oninput="efRecheck(event)">
+      </div>
+      <div style="color:#c62828;font-size:12px;margin-top:4px;display:none" id="efPayErr">⚠️ 现金+扫码+美团 需等于实收总额</div>
+      <div style="color:#888;font-size:12px;margin-top:4px">提成自动按原价重算，与实收无关</div>
+    </div>
+    <div style="display:flex;gap:6px">
+      <div class="field" style="flex:1"><label>客户来源</label><select id="efSrc" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px">${srcOpts}</select></div>
+      <div class="field"><label>点钟(指名人+20)</label><select id="efNamed" style="padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px"><option value="0">否</option><option value="1" ${r.named?'selected':''}>是</option></select></div>
+    </div>
+    <div class="field"><label>备注</label><input id="efNote" placeholder="备注（折扣原因等）"></div>
+    <div class="btn-row"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">取消</button><button class="btn g" onclick="efSave(${idx},this.closest('.modal-mask'))">保存改动</button></div></div>`;
+  mask.querySelector('#efNote').value=r.note||'';
   document.body.appendChild(mask);
+  efRecheck(mask);
 }
-let etNeed=1;
-function etPick(el,need){
+function efPick(el){
   el.classList.toggle('on');
-  const cnt=document.querySelectorAll('#etTags .tag2.on').length;
-  if(cnt>need){ el.classList.remove('on'); document.getElementById('etHint').textContent='最多选 '+need+' 名'; }
-  else { document.getElementById('etHint').textContent=cnt===need?'✅ 已选 '+need+' 人':(need===2?(cnt<2?'还需选 '+(2-cnt)+' 人':''):'还需选1人'); }
+  const container=el.closest('#etTags');
+  const need=(container.dataset.need||1)*1;
+  const cnt=container.querySelectorAll('.tag2.on').length;
+  const hint=document.getElementById('etHint');
+  if(cnt>need){ el.classList.remove('on'); hint.textContent='最多选 '+need+' 人'; }
+  else hint.textContent=cnt===need?('✅ 已选 '+need+' 人'):'还需选 '+(need-cnt)+' 人';
 }
-function etHint(mask,need){
-  const h=mask.querySelector('#etHint'); if(!h) return;
-  const cnt=mask.querySelectorAll('#etTags .tag2.on').length;
-  h.textContent=cnt===need?'✅ 已选 '+need+' 人':(need===2?(cnt<2?'还需选 '+(2-cnt)+' 人':''):'还需选1人');
+function efRecheck(evtOrMask){
+  const m=(evtOrMask&&evtOrMask.target)?evtOrMask.target.closest('.modal-mask'):evtOrMask;
+  if(!m) return;
+  // 判双人需选数
+  let need=1;
+  m.querySelectorAll('[data-p]').forEach(sel=>{ if(isPair(parseInt(sel.value))) need=2; });
+  const tagsEl=m.querySelector('#etTags'); if(tagsEl) tagsEl.dataset.need=need;
+  const cnt=m.querySelectorAll('#etTags .tag2.on').length;
+  const hint=m.querySelector('#etHint'); if(hint) hint.textContent=cnt===need?('✅ 已选 '+need+' 人'):'还需选 '+(need-cnt)+' 人';
+  // 收款校验
+  const total=parseFloat(m.querySelector('#efTotal').value)||0;
+  const sum=(parseFloat(m.querySelector('#efCash').value)||0)+(parseFloat(m.querySelector('#efScan').value)||0)+(parseFloat(m.querySelector('#efMT').value)||0);
+  const pe=m.querySelector('#efPayErr'); if(pe) pe.style.display=(Math.abs(sum-total)>0.01)?'block':'none';
 }
-async function etSave(idx,mask,need){
-  const picked=[]; mask.querySelectorAll('#etTags .tag2.on').forEach(el=>picked.push(el.getAttribute('data-t')));
-  if(picked.length!==need){ toast('⚠️ 请选择 '+need+' 名技师'); return; }
+async function efSave(idx,mask){
   const r=DB.records[idx]; if(!r){ mask.remove(); return; }
+  const pair=!!mask.querySelector('[data-p]');
+  // 校验技师
+  const picked=[]; mask.querySelectorAll('#etTags .tag2.on').forEach(el=>picked.push(el.getAttribute('data-t')));
+  const need=(mask.querySelector('#etTags').dataset.need||1)*1;
+  if(picked.length!==need){ toast('⚠️ 请选择 '+need+' 名技师'); return; }
+  // 校验收款
+  const newTotal=parseFloat(mask.querySelector('#efTotal').value)||0;
+  const cash=parseFloat(mask.querySelector('#efCash').value)||0;
+  const scan=parseFloat(mask.querySelector('#efScan').value)||0;
+  const mt=parseFloat(mask.querySelector('#efMT').value)||0;
+  if(Math.abs((cash+scan+mt)-newTotal)>0.01){ toast('⚠️ 现金+扫码+美团 需等于实收总额'); return; }
+  // 项目
+  let origTotal=0, commission=0; const items=[];
+  mask.querySelectorAll('[data-p]').forEach(sel=>{
+    const i=parseInt(sel.getAttribute('data-p'));
+    const orig=parseInt(sel.value);
+    const fin=parseFloat(mask.querySelector('[data-f="'+i+'"]').value)||orig;
+    const itTechsStr=mask.querySelector('[data-it="'+i+'"]').value.trim();
+    const itTechs=(itTechsStr?itTechsStr.split('/').map(s=>s.trim()).filter(Boolean):(orig===798?picked.slice():[picked[0]]));
+    items.push({orig:orig, fin:fin, techs:itTechs});
+    origTotal+=orig; commission+=itemTotalComm(orig);
+  });
+  // 点钟
+  const named=mask.querySelector('#efNamed').value==='1';
+  const namedTech=named?((r.namedTech)||picked[0]||''):'';
+  if(named) commission+=20;
+  // 其他
+  const payArr=[]; if(cash>0)payArr.push('现金¥'+cash); if(scan>0)payArr.push('扫码¥'+scan); if(mt>0)payArr.push('美团¥'+mt);
+  const note=mask.querySelector('#efNote').value.trim();
+  const src=mask.querySelector('#efSrc').value;
+  // 写回
   r.techs=picked.slice();
-  (r.items||[]).forEach(it=>{ if(it.orig===798){ it.techs=picked; } else if(r.items.length===1){ it.techs=picked.slice(0,1); } else { it.techs=[picked[0]]; } });
-  mask.remove(); await save(); renderRoomTimes(); renderStats(); renderSourceStats(); toast('✅ 技师已改为 '+picked.join('、'));
+  r.items=items; r.origTotal=origTotal; r.commission=commission; r.total=newTotal;
+  r.pay=payArr; r.note=note; r.source=src; r.named=named; r.namedTech=namedTech;
+  mask.remove(); await save(); renderRoomTimes(); renderStats(); renderSourceStats(); toast('✅ 整单已更新');
 }
 
 function renderRoomTimes(){
@@ -477,7 +555,7 @@ function renderRoomTimes(){
       const namedTxt=(r.named&&r.namedTech)?`<div style="color:#e65100">⭐ 点钟：${r.namedTech} +20</div>`:'';
       const srcTxt=r.source?`<div style="color:#555">客户来源：${r.source}</div>`:'';
       return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px;color:#333">
-        <div style="font-weight:600">${i+1}. 技师：${(r.techs||[r.tech]).join('、')} <button class="btn gr" style="padding:1px 8px;font-size:11px;margin-left:6px" onclick="editRecordTechs(${r._idx})">✎ 改技师</button></div>
+        <div style="font-weight:600">${i+1}. 技师：${(r.techs||[r.tech]).join('、')} <button class="btn gr" style="padding:1px 8px;font-size:11px;margin-left:6px" onclick="editRecordFull(${r._idx})">✎ 改整单</button></div>
         <div style="color:#555">🕒 ${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</div>${itHtml}${namedTxt}${srcTxt}${editTxt}
         <div style="color:#555">结账：${pay||'--'}</div>
         <div style="color:#888">应收 ¥${r.origTotal||0} → 实收 ¥${r.total||0}（提成合计 ¥${r.commission||0}）</div>${note}</div>`;
