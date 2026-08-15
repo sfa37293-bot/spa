@@ -169,30 +169,33 @@ function openTechMonthly(){
   const techMap={};
   const dayIdx={};
   days.forEach((k,ix)=>dayIdx[k]=ix);
+  function mkTech(){ return {days:new Array(30).fill(0),cnt:new Array(30).fill(0),ccnt:new Array(30).fill(0),tot:0,tots:0,ctots:0,detail:{},named:0}; }
+  function ensure(tn){ if(!techMap[tn])techMap[tn]=mkTech(); return techMap[tn]; }
   records.forEach(r=>{
     const ix=dayIdx[r.date];
     if(ix===undefined) return;
     if(r.isReturn||r.isWalk) return; // 退钟/走客无提成
-    (r.items||[]).forEach(it=>{
+    (r.items||[]).forEach((it,itx)=>{
       const techs=it.techs&&it.techs.length?it.techs:(r.techs||[]);
-      function addCnt(tn,cnt,amt){ if(!techMap[tn])techMap[tn]={days:new Array(30).fill(0),cnt:new Array(30).fill(0),tot:0,tots:0,c:0}; techMap[tn].days[ix]+=amt; techMap[tn].cnt[ix]+=cnt; techMap[tn].tot+=amt; techMap[tn].tots+=cnt; techMap[tn].c+=1; }
+      const isExtra = itx>0; // 首钟之外均算加钟
       if(it.orig===798){
-        (techs.length?techs:[r.tech]).forEach(tn=>{ if(!tn)return; addCnt(tn,1,190); });
+        (techs.length?techs:[r.tech]).forEach(tn=>{ if(!tn)return; const t=ensure(tn); t.days[ix]+=190; t.tot+=190; t.tots+=1; if(isExtra){t.ccnt[ix]+=1;t.ctots+=1;}else{t.cnt[ix]+=1;} t.detail[ix]=t.detail[ix]||[]; t.detail[ix].push({h:(isExtra?'加':'主')+'-双798',fin:it.fin||it.orig,techs:[tn],amt:190}); });
       } else {
         const c=CMAP[it.orig]||0; if(!c) return;
         const per=techs.length?Math.round(c/techs.length):c;
-        (techs.length?techs:[r.tech]).forEach(tn=>{ if(!tn)return; addCnt(tn,1,per); });
+        (techs.length?techs:[r.tech]).forEach(tn=>{ if(!tn)return; const t=ensure(tn); t.days[ix]+=per; t.tot+=per; t.tots+=1; if(isExtra){t.ccnt[ix]+=1;t.ctots+=1;}else{t.cnt[ix]+=1;} t.detail[ix]=t.detail[ix]||[]; t.detail[ix].push({h:(isExtra?'加':'主')+'-'+it.orig,fin:it.fin||it.orig,techs:[tn],amt:per}); });
       }
     });
-    if(r.named&&r.namedTech&&techMap){
-      if(!techMap[r.namedTech])techMap[r.namedTech]={days:new Array(30).fill(0),cnt:new Array(30).fill(0),tot:0,tots:0,c:0};
-      techMap[r.namedTech].days[ix]+=20; techMap[r.namedTech].tot+=20; techMap[r.namedTech].named=(techMap[r.namedTech].named||0)+1;
+    if(r.named&&r.namedTech){
+      const t=ensure(r.namedTech);
+      t.days[ix]+=20; t.tot+=20; t.named+=1;
+      t.detail[ix]=t.detail[ix]||[]; t.detail[ix].push({h:'⭐点钟',fin:0,techs:[],amt:20});
     }
   });
   const names=Object.keys(techMap).sort((a,b)=>techMap[b].tot-techMap[a].tot);
-  // 生成表头：斜着展示日期+m/d
+  // 生成表头
   let head='<tr><td style="padding:6px;border:1px solid #c4ccd8;background:#3a4270;color:#fff;font-weight:700;white-space:nowrap;position:sticky;left:0;z-index:2">技师</td>';
-  days.forEach((k,ix)=>{
+  days.forEach((k)=>{
     const m=k.slice(5).replace('-','/');
     head+=`<td style="padding:6px;border:1px solid #c4ccd8;background:#59648f;color:#fff;font-weight:700;font-size:11px;text-align:center;white-space:nowrap">${m}</td>`;
   });
@@ -204,32 +207,35 @@ function openTechMonthly(){
     const tm=techMap[n];
     let cells='';
     days.forEach((k,ix)=>{
-      const amt=tm.days[ix], cnt=tm.cnt[ix];
-      cells+=`<td style="padding:3px 4px;border:1px solid #d9dfe8;text-align:center;white-space:nowrap;${amt?`color:#1c7b3f;font-weight:700;background:${ri%2?'#f2f8f3':'#eaf5ec'}`:'color:#c7cdd8'}">${amt?('¥'+amt):'·'}${cnt?'<div style="font-size:10px;font-weight:500;color:#6b9b6b">'+cnt+'钟</div>':''}</td>`;
+      const amt=tm.days[ix], mc=tm.cnt[ix], ac=tm.ccnt[ix];
+      const sub = mc||ac ? (mc?'主'+mc:'')+(ac?'加'+ac:'')+'钟' : '';
+      cells+=`<td style="padding:3px 4px;border:1px solid #d9dfe8;text-align:center;white-space:nowrap;${amt?`color:#1c7b3f;font-weight:700;background:${ri%2?'#f2f8f3':'#eaf5ec'}`:'color:#c7cdd8'}">${amt?('¥'+amt):'·'}${sub?'<div style="font-size:10px;font-weight:500;color:#6b9b6b">'+sub+'</div>':''}</td>`;
     });
-    body+=`<tr><td style="padding:6px;border:1px solid #d9dfe8;font-weight:700;white-space:nowrap;position:sticky;left:0;background:#f7f8fb">${n}${tm.named?(`<span style="color:#e65100;font-size:10px">★${tm.named}点</span>`):''}</td>${cells}<td style="padding:6px;border:1px solid #c4ccd8;background:#e2e7f0;color:#33415e;font-weight:800;text-align:center">¥${tm.tot}<div style="font-size:10px;font-weight:600;color:#7c8698">${tm.tots}钟</div></td></tr>`;
+    const subT = tm.tots ? (tm.tots+'钟'+(tm.ctots?('（加'+tm.ctots+'）'):'')) : '';
+    body+=`<tr><td style="padding:6px;border:1px solid #d9dfe8;font-weight:700;white-space:nowrap;position:sticky;left:0;background:#f7f8fb">${n}${tm.named?(`<span style="color:#e65100;font-size:10px">★${tm.named}点</span>`):''}</td>${cells}<td style="padding:6px;border:1px solid #c4ccd8;background:#e2e7f0;color:#33415e;font-weight:800;text-align:center">¥${tm.tot}<div style="font-size:10px;font-weight:600;color:#7c8698">${subT}</div></td></tr>`;
   });
   // 每天合计行
   let dayTot='<tr><td style="padding:6px;border:1px solid #c4ccd8;background:#474f7e;color:#fff;font-weight:800">当日合计</td>';
-  let grand=0, grandS=0;
+  let grand=0, grandS=0, grandA=0;
   days.forEach((k,ix)=>{
-    let s=0, sc=0; names.forEach(n=>{s+=techMap[n].days[ix]; sc+=techMap[n].cnt[ix];}); grand+=s; grandS+=sc;
+    let s=0, sc=0, sa=0; names.forEach(n=>{s+=techMap[n].days[ix]; sc+=techMap[n].cnt[ix]; sa+=techMap[n].ccnt[ix];}); grand+=s; grandS+=sc; grandA+=sa;
     const style=s?{bg:'#dce9f7',c:'#0d47a1'}:{bg:'#eef1f6',c:'#8a93a6'};
-    dayTot+=`<td style="padding:5px;border:1px solid #c4ccd8;background:${style.bg};color:${style.c};font-weight:800;text-align:center">${s?('¥'+s):'·'}</td>`;
+    const sub=(sc||sa)?('主'+sc+(sa?('加'+sa):'')):'';
+    dayTot+=`<td style="padding:5px;border:1px solid #c4ccd8;background:${style.bg};color:${style.c};font-weight:800;text-align:center">${s?('¥'+s):'·'}${sub?'<div style="font-size:9px;font-weight:600">'+sub+'</div>':''}</td>`;
   });
   dayTot+=`<td style="padding:6px;border:1px solid #c4ccd8;background:#2e7d32;color:#fff;font-weight:800;text-align:center">¥${grand}</td></tr>`;
   const mask=document.createElement('div');
   mask.className='modal-mask show'; mask.style.zIndex=285;
   mask.innerHTML=`<div class="modal" style="max-width:100%;width:96vw"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
     <h3>📋 技师每日提成月报（近30天）</h3>
-    <div style="color:#8792a6;font-size:11px;padding:0 0 6px">行=技师｜列=营业日（凌晨11点前归前一天）｜绿格=当日提成金额，下方小字=当日上钟数｜★=点钟次数｜下拉选技师看每日明细</div>
+    <div style="color:#8792a6;font-size:11px;padding:0 0 6px">行=技师｜列=营业日（凌晨11点前归前一天）｜绿格=当日提成金额，下方小字=主X加Y钟｜★=点钟次数｜下拉选技师看每日+加钟明细</div>
     <div style="overflow:auto;max-height:52vh;-webkit-overflow-scrolling:touch;border:1px solid #d9dfe8;border-radius:8px">
       <table style="border-collapse:collapse;font-size:12px;min-width:960px;width:100%">
         <thead>${head}</thead>
         <tbody>${body}${dayTot}</tbody>
       </table>
     </div>
-    <div style="margin-top:12px;font-size:13px;font-weight:700;color:#37415c">👤 按技师查看每日提成：</div>
+    <div style="margin-top:12px;font-size:13px;font-weight:700;color:#37415c">👤 按技师查看每日提成（含加钟明细）：</div>
     <div id="techDrill"></div>
     <div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div>
   </div>`;
@@ -238,7 +244,7 @@ function openTechMonthly(){
   const drillBox=document.getElementById('techDrill');
   if(!names.length){ drillBox.innerHTML='<div style="color:#aaa;font-size:12px">无可选技师</div>'; return; }
   let selHtml='<select id="techSel" style="padding:8px;border-radius:8px;border:1px solid #d9dfe8;font-size:13px;width:100%">';
-  names.forEach(n=>{ selHtml+=`<option value="${n}">${n}（30天 ¥${techMap[n].tot}/ ${techMap[n].tots}钟）</option>`; });
+  names.forEach(n=>{ const t=techMap[n]; selHtml+=`<option value="${n}">${n}（30天 ¥${t.tot}/ ${t.tots}钟${t.ctots?('，加'+t.ctots):''}）</option>`; });
   selHtml+='</select><div id="techDrillBody" style="margin-top:8px"></div>';
   drillBox.innerHTML=selHtml;
   const sel=document.getElementById('techSel');
@@ -249,11 +255,22 @@ function renderTechDrill(name, techMap, days){
   const tm=techMap[name]; if(!tm){document.getElementById('techDrillBody').innerHTML='';return;}
   let rows='';
   for(let i=0;i<30;i++){
-    if(!tm.days[i]) continue;
-    rows+=`<div class="ts" style="border:none"><span>${days[i].slice(5)}</span><span style="color:#1c7b3f;font-weight:800">¥${tm.days[i]}</span></div>`;
+    if(!tm.days[i] && !(tm.detail[i]||[]).length) continue;
+    const dayDetail=(tm.detail[i]||[]).map(e=>{
+      const tagColor = e.h.indexOf('加')===0 ? '#e65100' : (e.h==='⭐点钟' ? '#c2185b' : '#37415c');
+      let price='';
+      const m=e.h.match(/-(.+)$/);
+      if(m){ const o=m[1].replace('双',''); if(e.fin&&e.fin!=o){ price=o+'→'+e.fin+'元实收'; } else if(o!=='798'){ price=o+'元'; } }
+      return `<div style="padding:3px 0;font-size:12px"><span style="color:${tagColor};font-weight:700">${e.h==='⭐点钟'?'⭐点钟':e.h.replace('双-','双人').replace('-',' ')}</span>${price?' <span style="color:#888">('+price+')</span>':''}<span style="float:right;color:#1c7b3f;font-weight:700">¥${e.amt}</span></div>`;
+    }).join('');
+    rows+=`<div style="background:#f9fafb;border-radius:8px;padding:6px 10px;margin-bottom:6px">
+      <div style="font-weight:700;color:#2d3561;font-size:13px">${days[i].slice(5)}<span style="color:#1c7b3f">　¥${tm.days[i]}</span><span style="color:#888;font-size:11px;font-weight:500;float:right">${tm.cnt[i]}主钟${tm.ccnt[i]?(' / 加钟'+tm.ccnt[i]):''}</span></div>
+      ${dayDetail}
+    </div>`;
   }
+  const totalLine=`<div class="ts" style="border:none;border-top:1px solid #e5e5ea;margin-top:4px"><span style="font-weight:800">${name} 30天合计</span><span style="color:#0d47a1;font-weight:800">¥${tm.tot}<span style="font-size:11px;color:#888">（${tm.tots}钟${tm.ctots?('，其中加钟'+tm.ctots):''}）</span></span></div>`;
   document.getElementById('techDrillBody').innerHTML= rows
-    ? `<div style="font-weight:700;color:#2d3561;padding:4px 0;font-size:13px">${name} 近30天每日提成：</div>`+rows+`<div class="ts" style="border:none;border-top:1px solid #e5e5ea;margin-top:4px"><span style="font-weight:800">合计</span><span style="color:#0d47a1;font-weight:800">¥${tm.tot}</span></div>`
+    ? `<div style="font-weight:700;color:#2d3561;padding:4px 0;font-size:13px">${name} 每日提成明细（主/加钟）：</div>`+rows+totalLine
     : '<div style="color:#aaa;font-size:12px;padding:6px">该技师近30天无提成</div>';
 }
 function openTraffic(){
