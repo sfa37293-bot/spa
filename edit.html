@@ -449,6 +449,13 @@ function editRecordFull(idx){
       <div class="field" style="flex:1"><label>客户来源</label><select id="efSrc" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px">${srcOpts}</select></div>
       <div class="field"><label>点钟(指名人+20)</label><select id="efNamed" style="padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px"><option value="0">否</option><option value="1" ${r.named?'selected':''}>是</option></select></div>
     </div>
+    <div class="field"><label>上下钟时间</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span style="font-size:13px">上钟</span><input id="efStart" type="time" value="${r.startTime||''}" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:14px">
+        <span style="font-size:13px">下钟</span><input id="efEnd" type="time" value="${r.endTime||''}" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:14px">
+      </div>
+      <div style="color:#888;font-size:12px;margin-top:4px">营业日按上钟时间归属（凌晨11点前归前一天）</div>
+    </div>
     <div class="field"><label>备注</label><input id="efNote" placeholder="备注（折扣原因等）"></div>
     <div class="btn-row"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">取消</button><button class="btn g" onclick="efSave(${idx},this.closest('.modal-mask'))">保存改动</button></div></div>`;
   mask.querySelector('#efNote').value=r.note||'';
@@ -510,8 +517,12 @@ async function efSave(idx,mask){
   const payArr=[]; if(cash>0)payArr.push('现金¥'+cash); if(scan>0)payArr.push('扫码¥'+scan); if(mt>0)payArr.push('美团¥'+mt);
   const note=mask.querySelector('#efNote').value.trim();
   const src=mask.querySelector('#efSrc').value;
+  // 上下钟时间
+  const startTime=mask.querySelector('#efStart').value||r.startTime||'';
+  const endTime=mask.querySelector('#efEnd').value||r.endTime||'';
   // 写回
   r.techs=picked.slice();
+  r.startTime=startTime; r.endTime=endTime;
   r.items=items; r.origTotal=origTotal; r.commission=commission; r.total=newTotal;
   r.pay=payArr; r.note=note; r.source=src; r.named=named; r.namedTech=namedTech;
   mask.remove(); await save(); renderRoomTimes(); renderStats(); renderSourceStats(); toast('✅ 整单已更新');
