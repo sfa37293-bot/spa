@@ -194,7 +194,7 @@ function openTechMonthly(){
   });
   const names=Object.keys(techMap).sort((a,b)=>techMap[b].tot-techMap[a].tot);
   // 生成表头
-  let head='<tr><td style="padding:6px;border:1px solid #c4ccd8;background:#3a4270;color:#fff;font-weight:700;white-space:nowrap;position:sticky;left:0;z-index:2">技师</td>';
+  let head='<tr><td style="padding:6px;border:1px solid #c4ccd8;background:#3a4270;color:#fff;font-weight:700;white-space:nowrap">技师</td>';
   days.forEach((k)=>{
     const m=k.slice(5).replace('-','/');
     head+=`<td style="padding:6px;border:1px solid #c4ccd8;background:#59648f;color:#fff;font-weight:700;font-size:11px;text-align:center;white-space:nowrap">${m}</td>`;
@@ -212,7 +212,7 @@ function openTechMonthly(){
       cells+=`<td style="padding:3px 4px;border:1px solid #d9dfe8;text-align:center;white-space:nowrap;${amt?`color:#1c7b3f;font-weight:700;background:${ri%2?'#f2f8f3':'#eaf5ec'}`:'color:#c7cdd8'}">${amt?('¥'+amt):'·'}${sub?'<div style="font-size:10px;font-weight:500;color:#6b9b6b">'+sub+'</div>':''}</td>`;
     });
     const subT = tm.tots ? (tm.tots+'钟'+(tm.ctots?('（加'+tm.ctots+'）'):'')) : '';
-    body+=`<tr><td style="padding:6px;border:1px solid #d9dfe8;font-weight:700;white-space:nowrap;position:sticky;left:0;background:#f7f8fb">${n}${tm.named?(`<span style="color:#e65100;font-size:10px">★${tm.named}点</span>`):''}</td>${cells}<td style="padding:6px;border:1px solid #c4ccd8;background:#e2e7f0;color:#33415e;font-weight:800;text-align:center">¥${tm.tot}<div style="font-size:10px;font-weight:600;color:#7c8698">${subT}</div></td></tr>`;
+    body+=`<tr><td style="padding:6px;border:1px solid #d9dfe8;font-weight:700;white-space:nowrap;background:#f7f8fb">${n}${tm.named?(`<span style="color:#e65100;font-size:10px">★${tm.named}点</span>`):''}</td>${cells}<td style="padding:6px;border:1px solid #c4ccd8;background:#e2e7f0;color:#33415e;font-weight:800;text-align:center">¥${tm.tot}<div style="font-size:10px;font-weight:600;color:#7c8698">${subT}</div></td></tr>`;
   });
   // 每天合计行
   let dayTot='<tr><td style="padding:6px;border:1px solid #c4ccd8;background:#474f7e;color:#fff;font-weight:800">当日合计</td>';
@@ -229,7 +229,7 @@ function openTechMonthly(){
   mask.innerHTML=`<div class="modal" style="max-width:100%;width:96vw"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
     <h3>📋 技师每日提成月报（近30天）</h3>
     <div style="color:#8792a6;font-size:11px;padding:0 0 6px">行=技师｜列=营业日（凌晨11点前归前一天）｜绿格=当日提成金额，下方小字=主X加Y钟｜★=点钟次数｜下拉选技师看每日+加钟明细</div>
-    <div style="overflow:auto;max-height:52vh;-webkit-overflow-scrolling:touch;border:1px solid #d9dfe8;border-radius:8px">
+    <div style="overflow:auto;max-height:74vh;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;border:1px solid #d9dfe8;border-radius:8px">
       <table style="border-collapse:collapse;font-size:12px;min-width:960px;width:100%">
         <thead>${head}</thead>
         <tbody>${body}${dayTot}</tbody>
