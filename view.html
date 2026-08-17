@@ -144,7 +144,7 @@ function renderStats(records){
   viewTraffic={rooms:todays,rets:rets,walks:walks};
   document.getElementById('gTraffic').textContent=(todays.length+rets.length+walks.length);
   const map={};
-  const CMAP={198:90,298:140,398:190,498:240};
+  const CMAP={198:90,298:140,398:190,498:240,598:290};
   todays.forEach(r=>{
     (r.items||[]).forEach(it=>{
       const techs=it.techs&&it.techs.length?it.techs:(r.techs||[r.tech]);
@@ -164,7 +164,7 @@ function openTechMonthly(){
   const now=new Date();
   const days=[];
   for(let i=29;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i); days.push(bizKeyFromDate(d)); }
-  const CMAP={198:90,298:140,398:190,498:240};
+  const CMAP={198:90,298:140,398:190,498:240,598:290};
   // 统计：tech -> day -> 金额；同时记每天钟数方便排错
   const techMap={};
   const dayIdx={};
@@ -314,8 +314,8 @@ function openMonthly(){
   const records=viewRecords||[];
   const days=[]; const now=new Date();
   for(let i=29;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i); days.push(bizKeyFromDate(d)); }
-  const CMAP={198:90,298:140,398:190,498:240};
-  const projCount={198:0,298:0,398:0,498:0,798:0};
+  const CMAP={198:90,298:140,398:190,498:240,598:290};
+  const projCount={198:0,298:0,398:0,498:0,598:0,798:0};
   // 合计
   const tot={guest:0,ret:0,walk:0,clock:0,extra:0,should:0,get:0,disc:0,comm:0,cash:0,scan:0,mt:0};
   const cols={
@@ -346,7 +346,7 @@ function openMonthly(){
   let header='<tr>'+keys.map((c,ci)=>`<td style="padding:6px;border:1px solid #c4ccd8;background:${ci===0?'#3a4270':'#59648f'};color:#fff;font-weight:700;font-size:11px;white-space:nowrap">${cols[c]}</td>`).join('')+'</tr>';
   let totVal={date:'合计',guest:tot.guest,ret:tot.ret,walk:tot.walk,clock:tot.clock,extra:tot.extra,should:tot.should,get:tot.get,disc:tot.disc,cash:tot.cash,scan:tot.scan,mt:tot.mt,comm:tot.comm};
   let totRow='<tr>'+keys.map((c,ci)=>`<td style="padding:6px;border:1px solid #c4ccd8;background:${ci===0?'#3a4270':'#e2e7f0'};color:${ci===0?'#fff':'#33415e'};font-weight:800">${totVal[c]}</td>`).join('')+'</tr>';
-  let projRow='<div style="font-weight:700;color:#37415c;padding:6px 8px;border-top:1px solid #c4ccd8;font-size:12px">📊 项目合计：'+[198,298,398,498,798].map(p=>`${p}元×${projCount[p]}${p===798?'(双人)':''}`).join('　')+'</div>';
+  let projRow='<div style="font-weight:700;color:#37415c;padding:6px 8px;border-top:1px solid #c4ccd8;font-size:12px">📊 项目合计：'+[198,298,398,498,598,798].map(p=>`${p}元×${projCount[p]}${p===798?'(双人)':''}`).join('　')+'</div>';
   const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=280;
   mask.innerHTML=`<div class="modal" style="max-width:480px"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button><h3>📅 近30天营业统计</h3>${projRow}<div style="overflow:auto;max-height:55vh;margin-top:8px;-webkit-overflow-scrolling:touch"><table style="border-collapse:collapse;font-size:12px;min-width:620px;width:100%"><thead>${header}</thead><tbody>${rows}${totRow}</tbody></table></div><div style="color:#8792a6;font-size:11px;padding:6px 0">客流=开房+退钟+走客；折扣=应收-实收；可上下/左右滑动看全</div><div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
   document.body.appendChild(mask);
@@ -410,7 +410,7 @@ function renderRoomTimes(records,rooms){
             const its=it.techs&&it.techs.length?it.techs:(r.techs||[r.tech]);
             let commTxt;
             if(it.orig===798){ commTxt=its.map(t=>`${t}¥190`).join(' / '); }
-            else { commTxt=its.map((t,ti)=>ti===0?`${t}¥${({198:90,298:140,398:190,498:240}[it.orig]||0)}`:`${t}`).join(' / '); }
+            else { commTxt=its.map((t,ti)=>ti===0?`${t}¥${({198:90,298:140,398:190,498:240,598:290}[it.orig]||0)}`:`${t}`).join(' / '); }
             const priceTxt=`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元${it.orig===798?'（双人）':''}`;
             return `<div style="color:#333">${ix+1}. ${priceTxt}｜${its.join('、')}｜提成 ${commTxt}</div>`;
           }).join('')||`1. ${r.itemCount||1}钟`;
@@ -529,7 +529,7 @@ function renderRank(records){
   todays.forEach(r=>{ (r.items||[]).forEach(it=>{ projCount[it.orig]=(projCount[it.orig]||0)+1; }); });
   const projArr=Object.keys(projCount).map(p=>({p:parseInt(p),c:projCount[p]})).sort((a,b)=>b.c-a.c);
   // 技师排行
-  const CMAP={198:90,298:140,398:190,498:240};
+  const CMAP={198:90,298:140,398:190,498:240,598:290};
   const techMap={};
   todays.forEach(r=>{
     (r.items||[]).forEach(it=>{
