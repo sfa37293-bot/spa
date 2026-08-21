@@ -154,7 +154,19 @@ function monthOf(s){ return s.slice(0,7); }
 function fmtCN(s){ const p=s.split('-'); return p[1]+'月'+p[2]+'日'; }
 
 // ---------- 数据库 ----------
-async function readAll(){ const r=await fetch(DBURL+'.json',{cache:'no-store'}); if(!r.ok)throw new Error('HTTP '+r.status); const j=await r.json(); return (j && j[NODE])||{records:[]}; }
+function fetchJSON(url, ms){ return new Promise((res,rej)=>{ const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(), ms);
+  fetch(url,{cache:'no-store',signal:ctl.signal}).then(r=>{ clearTimeout(t); if(!r.ok)return rej(new Error('HTTP '+r.status)); return r.json(); }).then(res).catch(e=>{ clearTimeout(t); rej(e); }); }); }
+async function readAll(attempts){ attempts=attempts||3; let last;
+  for(let i=0;i<attempts;i++){
+    try{
+      const j=await fetchJSON(DBURL+'.json',8000);
+      const recs=(j&&j[NODE]&&j[NODE].records);
+      if(!Array.isArray(recs)) throw new Error('数据格式异常');
+      return {records:recs};
+    }catch(e){ last=e; await new Promise(s=>setTimeout(s,900)); }
+  }
+  throw last;
+}
 async function writeNode(path,val){ const r=await fetch(DBURL+path+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(val)}); if(!r.ok)throw new Error('HTTP '+r.status); }
 
 function setSync(ok,txt){ document.getElementById('dot').className='dot '+(ok?'on':'off'); document.getElementById('syncText').textContent=txt; }
@@ -174,7 +186,7 @@ function render(){
   const cnt=document.getElementById('dayCount');
   cnt.textContent = currentViewRecords.length? (currentViewRecords.length+'笔') : '';
   if(currentViewRecords.length===0){
-    dl.innerHTML='<div class="empty">这一天还没有记录 📭</div>';
+    dl.innerHTML='<div class="empty">这一天还没有记录 📭</div><div style="text-align:center;margin-top:8px"><button onclick="reload()" style="background:#eff6ff;color:#3b82f6;border:none;padding:6px 16px;border-radius:8px;font-size:13px">⟳ 重新连接</button></div>';
   }else{
     dl.innerHTML='<div class="list">'+currentViewRecords.map(r=>`
       <div class="item">
@@ -253,6 +265,7 @@ async function delRecord(id){
 
 function goToday(){ goDate(todayStr()); }
 function goDate(d){ viewDate=d; document.getElementById('datePicker').value=d; render(); document.getElementById('sechead').scrollIntoView({behavior:'smooth',block:'start'}); }
+async function reload(){ setSync(false,'重连中…'); try{ DB=await readAll(5); setSync(true,'● 已同步'); }catch(e){ setSync(false,'● 连接失败'); toast('仍连不上：'+e.message); } render(); }
 
 // ---------- 初始化 ----------
 let toastTimer=null;
@@ -269,13 +282,12 @@ document.getElementById('datePicker').value=viewDate;
 (async function init(){
   setSync(false,'加载中…');
   try{
-    DB=await readAll();
-    if(!DB.records||!Array.isArray(DB.records))DB.records=[];
+    DB=await readAll(5);
     setSync(true,'● 已同步');
   }catch(e){
     DB={records:[]};
-    setSync(false,'● 离线模式');
-    toast('加载失败：'+e.message);
+    setSync(false,'● 连接失败');
+    toast('连接不到服务器，明细可能为空：'+e.message);
   }
   render();
 })();
