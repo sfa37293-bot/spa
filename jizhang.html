@@ -178,7 +178,7 @@ async function save(){
 
 // ---------- UI ----------
 function render(){
-  const day=dateIn(viewDate);
+  const day = String(viewDate);
   // 今日明细
   currentViewRecords = DB.records.filter(r=>dateIn(r)===day).sort((a,b)=>(b.ts||0)-(a.ts||0));
 
