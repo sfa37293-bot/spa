@@ -122,13 +122,7 @@ h2.sec .count{color:#bbb;font-size:12px}
     <button class="today" onclick="goToday()">回今天</button>
   </div>
 
-  <div class="stats">
-    <div class="stat"><div class="label">收 入</div><div class="val in" id="statIn">0</div></div>
-    <div class="stat"><div class="label">支 出</div><div class="val out" id="statOut">0</div></div>
-    <div class="stat"><div class="label">结 余</div><div class="val bal" id="statBal">0</div></div>
-  </div>
-
-  <h2 class="sec">今日明细 <span class="count" id="dayCount"></span></h2>
+  <h2 class="sec" id="sechead">今日明细 <span class="count" id="dayCount"></span></h2>
   <div id="dayList"></div>
 
   <div class="monthcard">
@@ -138,7 +132,7 @@ h2.sec .count{color:#bbb;font-size:12px}
     <div class="mrow"><span class="l">结余</span><span class="r bal" id="mBal">0</span></div>
   </div>
 
-  <h2 class="sec" style="margin-top:16px">历史记录</h2>
+  <h2 class="sec" style="margin-top:16px">历史记录 <small style="font-size:11px;color:#bbb;font-weight:400">点某天可看明细</small></h2>
   <div class="hist" id="histList"></div>
 </div>
 
@@ -175,11 +169,6 @@ function render(){
   const day=dateIn(viewDate);
   // 今日明细
   currentViewRecords = DB.records.filter(r=>dateIn(r)===day).sort((a,b)=>(b.ts||0)-(a.ts||0));
-  let sin=0,sout=0;
-  currentViewRecords.forEach(r=>{ if(r.type==='in')sin+=Number(r.amount)||0; else sout+=Number(r.amount)||0; });
-  document.getElementById('statIn').textContent=money(sin);
-  document.getElementById('statOut').textContent=money(sout);
-  document.getElementById('statBal').textContent=money(sin-sout);
 
   const dl=document.getElementById('dayList');
   const cnt=document.getElementById('dayCount');
@@ -228,7 +217,7 @@ function renderHist(){
   hist.innerHTML+=days.map(d=>{
     const recs=map[d]; let hin=0,hout=0;
     recs.forEach(r=>{ if(r.type==='in')hin+=Number(r.amount)||0; else hout+=Number(r.amount)||0; });
-    return `<div class="hitem">
+    return `<div class="hitem" onclick="goDate('${d}')" style="cursor:pointer;${d===viewDate?'background:#f0f7ff;':''}">
       <div class="hd">${fmtCN(d)}<small>${recs.length}笔</small></div>
       <div class="hv"><span class="hin">+${money(hin)}</span><span class="hout">−${money(hout)}</span></div>
     </div>`;
@@ -262,7 +251,8 @@ async function delRecord(id){
   render();
 }
 
-function goToday(){ viewDate=todayStr(); document.getElementById('datePicker').value=viewDate; render(); }
+function goToday(){ goDate(todayStr()); }
+function goDate(d){ viewDate=d; document.getElementById('datePicker').value=d; render(); document.getElementById('sechead').scrollIntoView({behavior:'smooth',block:'start'}); }
 
 // ---------- 初始化 ----------
 let toastTimer=null;
