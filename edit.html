@@ -90,11 +90,11 @@
 <script>
 const DBURL = 'https://spa123-da150-default-rtdb.asia-southeast1.firebasedatabase.app/';
 // 单项目提成
-const COMMISSION = {198:90,298:140,398:190,498:240,598:290};
+const COMMISSION = {128:60,158:75,198:90,298:140,398:190,498:240,598:290};
 // 双人项目:每名技师提成
 const PAIR_PRICE = 798;
 const PAIR_COMMISSION_PER = 190;
-const PROJS = [198,298,398,498,598,798];
+const PROJS = [128,158,198,298,398,498,598,798];
 // 项目是否为双人
 function isPair(p){ return p===798; }
 // 某项目整单提成(双人按2人算)
@@ -556,7 +556,7 @@ function renderRoomTimes(){
         const techs=it.techs&&it.techs.length?it.techs:(r.techs||[r.tech]);
         let commTxt;
         if(it.orig===798){ commTxt=techs.map(t=>`${t}¥190`).join(' / '); }
-        else { commTxt=techs.map((t,ti)=>ti===0?`${t}￥${({198:90,298:140,398:190,498:240,598:290}[it.orig]||0)}`:`${t}`).join(' / '); }
+        else { commTxt=techs.map((t,ti)=>ti===0?`${t}￥${({128:60,158:75,198:90,298:140,398:190,498:240,598:290}[it.orig]||0)}`:`${t}`).join(' / '); }
         const priceTxt=`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元${it.orig===798?'(双人)':''}`;
         return `<div style="color:#333">${ix+1}. ${priceTxt}|${techs.join('、')}|提成 ${commTxt}</div>`;
       }).join('')||`1. ${r.itemCount||1}钟`;
