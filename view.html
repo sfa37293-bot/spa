@@ -103,7 +103,18 @@ function comm50(price){
   return v;
 }
 function isPair(p){ return p===798; }
-// 双人项目单名技师提成190,其他50%上取整;整单为双人时*人数
+const PAIR_COMMISSION_PER=190;
+// 旧算法:固定提成表(用于2026-08-30 11:00之前的记录,不带 newRule 标记)
+const OLD_COMM={128:60,158:75,198:90,298:140,398:190,498:240,598:290};
+// 是否用新算法(50%):仅当记录带 newRule:true 标记(2026-08-30 11:00后录入)
+function isNewRule(r){ return !!(r && r.newRule===true); }
+// 单项目整单提成(双人每名190不变;普通项目按 newRule 分新/旧算法)
+function calcItemComm(it, r){
+  var price = (typeof it==='object') ? (it.orig||it.price) : it;
+  if(price===798) return PAIR_COMMISSION_PER*2;
+  return isNewRule(r) ? comm50(price) : (OLD_COMM[price]||comm50(price));
+}
+// 双人项目单名技师提成190,其他:新规则50%上取整
 function itemTotalComm(price){ return isPair(price) ? 190*2 : comm50(price); }
 // 营业日：11点前(凌晨)归属前一天，11点及以后归属当天
 function bizKeyFromDate(d){ const nd=new Date(d); if(nd.getHours()<11) nd.setDate(nd.getDate()-1); return dc(nd); }
@@ -158,7 +169,7 @@ function renderStats(records){
   todays.forEach(r=>{
     (r.items||[]).forEach(it=>{
       const techs=it.techs&&it.techs.length?it.techs:(r.techs||[r.tech]);
-      const comm=(it.orig===798)?(190*techs.length):comm50(it.orig);
+      const comm=calcItemComm(it, r);
       const per=techs.length?Math.round(comm/techs.length):comm;
       techs.forEach(tn=>{ if(!map[tn])map[tn]={c:0,t:0}; map[tn].c+=1; map[tn].t+=per; });
     });
@@ -190,7 +201,7 @@ function openTechMonthly(){
       if(it.orig===798){
         (techs.length?techs:[r.tech]).forEach(tn=>{ if(!tn)return; const t=ensure(tn); t.days[ix]+=190; t.tot+=190; t.tots+=1; if(isExtra){t.ccnt[ix]+=1;t.ctots+=1;}else{t.cnt[ix]+=1;} t.detail[ix]=t.detail[ix]||[]; t.detail[ix].push({h:(isExtra?'加':'主')+'-双798',fin:it.fin||it.orig,techs:[tn],amt:190}); });
       } else {
-        const c=comm50(it.orig);
+        const c=calcItemComm(it, r);
         const per=techs.length?Math.round(c/techs.length):c;
         (techs.length?techs:[r.tech]).forEach(tn=>{ if(!tn)return; const t=ensure(tn); t.days[ix]+=per; t.tot+=per; t.tots+=1; if(isExtra){t.ccnt[ix]+=1;t.ctots+=1;}else{t.cnt[ix]+=1;} t.detail[ix]=t.detail[ix]||[]; t.detail[ix].push({h:(isExtra?'加':'主')+'-'+it.orig,fin:it.fin||it.orig,techs:[tn],amt:per}); });
       }
@@ -419,7 +430,7 @@ function renderRoomTimes(records,rooms){
             const its=it.techs&&it.techs.length?it.techs:(r.techs||[r.tech]);
             let commTxt;
             if(it.orig===798){ commTxt=its.map(t=>`${t}¥190`).join(' / '); }
-            else { commTxt=its.map((t,ti)=>ti===0?`${t}¥${comm50(it.orig)}`:`${t}`).join(' / '); }
+            else { const cc=calcItemComm(it, r); commTxt=its.map((t,ti)=>ti===0?`${t}¥${cc}`:`${t}`).join(' / '); }
             const priceTxt=`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元${it.orig===798?'（双人）':''}`;
             return `<div style="color:#333">${ix+1}. ${priceTxt}｜${its.join('、')}｜提成 ${commTxt}</div>`;
           }).join('')||`1. ${r.itemCount||1}钟`;
@@ -542,7 +553,7 @@ function renderRank(records){
   todays.forEach(r=>{
     (r.items||[]).forEach(it=>{
       const techs=it.techs&&it.techs.length?it.techs:(r.techs||[r.tech]);
-      const c=(it.orig===798)?(190*techs.length):comm50(it.orig);
+      const c=(it.orig===798)?(190*techs.length):calcItemComm(it, r);
       const per=techs.length?Math.round(c/techs.length):c;
       techs.forEach(tn=>{ if(!techMap[tn])techMap[tn]={c:0,t:0}; techMap[tn].c+=1; techMap[tn].t+=per; });
     });
