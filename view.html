@@ -75,14 +75,14 @@
     <div id="sourceStats"></div>
   </div>
   <div class="panel">
-    <div class="gt">🏆 项目和技师排行（近10天）</div>
+    <div class="gt">🏆 项目和技师排行(近10天)</div>
     <div id="rankList"></div>
   </div>
   <div class="panel">
     <div class="gt">📅 近7天每日营业</div>
     <div id="weekList"></div>
   </div>
-  <div class="upd" id="updInfo">连接中…</div>
+  <div class="upd" id="updInfo">连接中...</div>
   <div class="btn-row" style="margin-top:14px">
     <button class="btn" style="background:#1d1d1f" onclick="openMonthly()">📅 月度营业统计</button>
     <button class="btn" style="background:#1c7b3f" onclick="openTechMonthly()">📋 技师每日提成月报</button>
@@ -116,7 +116,7 @@ function calcItemComm(it, r){
 }
 // 双人项目单名技师提成190,其他:新规则50%上取整
 function itemTotalComm(price){ return isPair(price) ? 190*2 : comm50(price); }
-// 营业日：11点前(凌晨)归属前一天，11点及以后归属当天
+// 营业日:11点前(凌晨)归属前一天,11点及以后归属当天
 function bizKeyFromDate(d){ const nd=new Date(d); if(nd.getHours()<11) nd.setDate(nd.getDate()-1); return dc(nd); }
 function currentBizKey(){ return bizKeyFromDate(new Date()); }
 function fmtClock(){ const d=new Date(); return d.toLocaleDateString('zh-CN',{month:'long',day:'numeric'})+' '+d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
@@ -134,7 +134,7 @@ function renderRooms(rooms){
     const div=document.createElement('div'); div.className='room';
     let body;
     if(busy){
-      const items = room.cur.items.map((it,i)=>`<div class="line"><span>项目${i+1}${it.price===798?'(双人)':''}</span><span>¥${it.price}</span></div>`).join('');
+      const items = room.cur.items.map((it,i)=>{ const atTxt=it.at?`<span style="color:#9c27b0;font-size:11px">【加钟 ${it.at}】</span>`:''; return `<div class="line"><span>项目${i+1}${it.price===798?'(双人)':''}${atTxt}</span><span>¥${it.price}</span></div>`; }).join('');
       const techs=(room.cur.techs&&room.cur.techs.length)?room.cur.techs.join('、'):(room.cur.tech||'');
       body=`<div class="line"><span>技师</span><span>${techs}</span></div>
             <div class="line"><span>上钟</span><span>${room.cur.startTime||''}</span></div>${items}`;
@@ -179,13 +179,13 @@ function renderStats(records){
 }
 let viewTechMap={};
 let viewTraffic={rooms:[],rets:[],walks:[]};
-// 技师提成月报：近30天每天每人提成
+// 技师提成月报:近30天每天每人提成
 function openTechMonthly(){
   const records=viewRecords||[];
   const now=new Date();
   const days=[];
   for(let i=29;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i); days.push(bizKeyFromDate(d)); }
-  // 统计：tech -> day -> 金额；同时记每天钟数方便排错
+  // 统计:tech -> day -> 金额;同时记每天钟数方便排错
   const techMap={};
   const dayIdx={};
   days.forEach((k,ix)=>dayIdx[k]=ix);
@@ -220,7 +220,7 @@ function openTechMonthly(){
     head+=`<td style="padding:6px;border:1px solid #c4ccd8;background:#59648f;color:#fff;font-weight:700;font-size:11px;text-align:center;white-space:nowrap">${m}</td>`;
   });
   head+=`<td style="padding:6px;border:1px solid #c4ccd8;background:#2e7d32;color:#fff;font-weight:800;white-space:nowrap">合计(元/钟)</td></tr>`;
-  // 行：每个技师
+  // 行:每个技师
   let body='';
   if(!names.length) body='<tr><td colspan="32" style="padding:14px;text-align:center;color:#aaa">近30天暂无提成数据</td></tr>';
   names.forEach((n,ri)=>{
@@ -231,7 +231,7 @@ function openTechMonthly(){
       const sub = mc||ac ? (mc?'主'+mc:'')+(ac?'加'+ac:'')+'钟' : '';
       cells+=`<td style="padding:3px 4px;border:1px solid #d9dfe8;text-align:center;white-space:nowrap;${amt?`color:#1c7b3f;font-weight:700;background:${ri%2?'#f2f8f3':'#eaf5ec'}`:'color:#c7cdd8'}">${amt?('¥'+amt):'·'}${sub?'<div style="font-size:10px;font-weight:500;color:#6b9b6b">'+sub+'</div>':''}</td>`;
     });
-    const subT = tm.tots ? (tm.tots+'钟'+(tm.ctots?('（加'+tm.ctots+'）'):'')) : '';
+    const subT = tm.tots ? (tm.tots+'钟'+(tm.ctots?('(加'+tm.ctots+')'):'')) : '';
     body+=`<tr><td style="padding:6px;border:1px solid #d9dfe8;font-weight:700;white-space:nowrap;background:#f7f8fb">${n}${tm.named?(`<span style="color:#e65100;font-size:10px">★${tm.named}点</span>`):''}</td>${cells}<td style="padding:6px;border:1px solid #c4ccd8;background:#e2e7f0;color:#33415e;font-weight:800;text-align:center">¥${tm.tot}<div style="font-size:10px;font-weight:600;color:#7c8698">${subT}</div></td></tr>`;
   });
   // 每天合计行
@@ -247,15 +247,15 @@ function openTechMonthly(){
   const mask=document.createElement('div');
   mask.className='modal-mask show'; mask.style.zIndex=285;
   mask.innerHTML=`<div class="modal" style="max-width:100%;width:96vw"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
-    <h3>📋 技师每日提成月报（近30天）</h3>
-    <div style="color:#8792a6;font-size:11px;padding:0 0 6px">行=技师｜列=营业日（凌晨11点前归前一天）｜绿格=当日提成金额，下方小字=主X加Y钟｜★=点钟次数｜下拉选技师看每日+加钟明细</div>
+    <h3>📋 技师每日提成月报(近30天)</h3>
+    <div style="color:#8792a6;font-size:11px;padding:0 0 6px">行=技师|列=营业日(凌晨11点前归前一天)|绿格=当日提成金额,下方小字=主X加Y钟|★=点钟次数|下拉选技师看每日+加钟明细</div>
     <div style="overflow:auto;max-height:74vh;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;border:1px solid #d9dfe8;border-radius:8px">
       <table style="border-collapse:collapse;font-size:12px;min-width:960px;width:100%">
         <thead>${head}</thead>
         <tbody>${body}${dayTot}</tbody>
       </table>
     </div>
-    <div style="margin-top:12px;font-size:13px;font-weight:700;color:#37415c">👤 按技师查看每日提成（含加钟明细）：</div>
+    <div style="margin-top:12px;font-size:13px;font-weight:700;color:#37415c">👤 按技师查看每日提成(含加钟明细):</div>
     <div id="techDrill"></div>
     <div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div>
   </div>`;
@@ -264,7 +264,7 @@ function openTechMonthly(){
   const drillBox=document.getElementById('techDrill');
   if(!names.length){ drillBox.innerHTML='<div style="color:#aaa;font-size:12px">无可选技师</div>'; return; }
   let selHtml='<select id="techSel" style="padding:8px;border-radius:8px;border:1px solid #d9dfe8;font-size:13px;width:100%">';
-  names.forEach(n=>{ const t=techMap[n]; selHtml+=`<option value="${n}">${n}（30天 ¥${t.tot}/ ${t.tots}钟${t.ctots?('，加'+t.ctots):''}）</option>`; });
+  names.forEach(n=>{ const t=techMap[n]; selHtml+=`<option value="${n}">${n}(30天 ¥${t.tot}/ ${t.tots}钟${t.ctots?(',加'+t.ctots):''})</option>`; });
   selHtml+='</select><div id="techDrillBody" style="margin-top:8px"></div>';
   drillBox.innerHTML=selHtml;
   const sel=document.getElementById('techSel');
@@ -284,26 +284,26 @@ function renderTechDrill(name, techMap, days){
       return `<div style="padding:3px 0;font-size:12px"><span style="color:${tagColor};font-weight:700">${e.h==='⭐点钟'?'⭐点钟':e.h.replace('双-','双人').replace('-',' ')}</span>${price?' <span style="color:#888">('+price+')</span>':''}<span style="float:right;color:#1c7b3f;font-weight:700">¥${e.amt}</span></div>`;
     }).join('');
     rows+=`<div style="background:#f9fafb;border-radius:8px;padding:6px 10px;margin-bottom:6px">
-      <div style="font-weight:700;color:#2d3561;font-size:13px">${days[i].slice(5)}<span style="color:#1c7b3f">　¥${tm.days[i]}</span><span style="color:#888;font-size:11px;font-weight:500;float:right">${tm.cnt[i]}主钟${tm.ccnt[i]?(' / 加钟'+tm.ccnt[i]):''}</span></div>
+      <div style="font-weight:700;color:#2d3561;font-size:13px">${days[i].slice(5)}<span style="color:#1c7b3f"> ¥${tm.days[i]}</span><span style="color:#888;font-size:11px;font-weight:500;float:right">${tm.cnt[i]}主钟${tm.ccnt[i]?(' / 加钟'+tm.ccnt[i]):''}</span></div>
       ${dayDetail}
     </div>`;
   }
-  const totalLine=`<div class="ts" style="border:none;border-top:1px solid #e5e5ea;margin-top:4px"><span style="font-weight:800">${name} 30天合计</span><span style="color:#0d47a1;font-weight:800">¥${tm.tot}<span style="font-size:11px;color:#888">（${tm.tots}钟${tm.ctots?('，其中加钟'+tm.ctots):''}）</span></span></div>`;
+  const totalLine=`<div class="ts" style="border:none;border-top:1px solid #e5e5ea;margin-top:4px"><span style="font-weight:800">${name} 30天合计</span><span style="color:#0d47a1;font-weight:800">¥${tm.tot}<span style="font-size:11px;color:#888">(${tm.tots}钟${tm.ctots?(',其中加钟'+tm.ctots):''})</span></span></div>`;
   document.getElementById('techDrillBody').innerHTML= rows
-    ? `<div style="font-weight:700;color:#2d3561;padding:4px 0;font-size:13px">${name} 每日提成明细（主/加钟）：</div>`+rows+totalLine
+    ? `<div style="font-weight:700;color:#2d3561;padding:4px 0;font-size:13px">${name} 每日提成明细(主/加钟):</div>`+rows+totalLine
     : '<div style="color:#aaa;font-size:12px;padding:6px">该技师近30天无提成</div>';
 }
 function openTraffic(){
   const d=viewTraffic||{rooms:[],rets:[],walks:[]};
   const rooms=(d.rooms||[]).map((r,i)=>`<div class="ts" style="border:none"><span>${i+1}. ${r.room}·${(r.techs||[r.tech]).join('、')}</span><span style="color:#555">${r.startTime||''} 实收¥${r.total||0}</span></div>`).join('')||'<div style="color:#aaa;text-align:center;padding:8px">今日暂无开房</div>';
-  const rets=(d.rets||[]).map((r,i)=>`<div class="ts" style="border:none;color:#c62828"><span>${i+1}. ↩️${r.room}·${(r.techs||[r.tech]).join('、')}</span><span>${r.time||r.startTime||''} 原因：${r.retReason||'--'}</span></div>`).join('')||'<div style="color:#aaa;text-align:center;padding:8px">今日无退钟</div>';
+  const rets=(d.rets||[]).map((r,i)=>`<div class="ts" style="border:none;color:#c62828"><span>${i+1}. ↩️${r.room}·${(r.techs||[r.tech]).join('、')}</span><span>${r.time||r.startTime||''} 原因:${r.retReason||'--'}</span></div>`).join('')||'<div style="color:#aaa;text-align:center;padding:8px">今日无退钟</div>';
   const walks=(d.walks||[]).map((r,i)=>`<div class="ts" style="border:none;color:#9c27b0"><span>${i+1}. 🚶${r.room}${(r.walkTechs&&r.walkTechs.length)?('·试钟:'+r.walkTechs.join('/')):''}</span><span>${r.time||r.startTime||''} 来源:${r.source||'--'} 原因:${r.walkReason||'--'}</span></div>`).join('')||'<div style="color:#aaa;text-align:center;padding:8px">今日无走客</div>';
   const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=270;
   mask.innerHTML=`<div class="modal" style="max-width:440px"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
     <h3>🧑‍🤝‍🧑 总客流详情</h3>
-    <div style="font-size:13px;font-weight:700;color:#333;margin:6px 0 4px">🛏️ 总开房（${(d.rooms||[]).length}）</div>${rooms}
-    <div style="font-size:13px;font-weight:700;color:#c62828;margin:8px 0 4px">↩️ 退钟（${(d.rets||[]).length}）</div>${rets}
-    <div style="font-size:13px;font-weight:700;color:#9c27b0;margin:8px 0 4px">🚶 走客（${(d.walks||[]).length}）</div>${walks}
+    <div style="font-size:13px;font-weight:700;color:#333;margin:6px 0 4px">🛏️ 总开房(${(d.rooms||[]).length})</div>${rooms}
+    <div style="font-size:13px;font-weight:700;color:#c62828;margin:8px 0 4px">↩️ 退钟(${(d.rets||[]).length})</div>${rets}
+    <div style="font-size:13px;font-weight:700;color:#9c27b0;margin:8px 0 4px">🚶 走客(${(d.walks||[]).length})</div>${walks}
     <div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
   document.body.appendChild(mask);
 }
@@ -312,11 +312,11 @@ function openClocks(){
   const rooms=d.rooms||[];
   let rows='';
   rooms.forEach((r,idx)=>{
-    const items=(r.items||[]).map((it,ix)=>`<div style="color:#555">${ix+1}. ¥${it.orig}${it.fin!==it.orig?('→'+it.fin):''}${it.orig===798?'（双人）':''}${(it.techs&&it.techs.length)?'｜'+it.techs.join('/'):''}</div>`).join('')||'<div style="color:#aaa">--</div>';
-    rows+=`<div style="padding:6px 0;border-bottom:1px dashed #e5e5ea;font-size:12px"><div style="font-weight:600">${idx+1}. ${r.room}·${(r.techs||[r.tech]).join('、')}（${r.startTime||''}）</div>${items}</div>`;
+    const items=(r.items||[]).map((it,ix)=>{ const atTxt=it.at?`【加${it.at}】`:''; return `<div style="color:#555">${ix+1}. ${atTxt}￥${it.orig}${it.fin!==it.orig?('→'+it.fin):''}${it.orig===798?'（双人）':''}${(it.techs&&it.techs.length)?'｜'+it.techs.join('/'):''}</div>`; }).join('')||'<div style="color:#aaa">--</div>';
+    rows+=`<div style="padding:6px 0;border-bottom:1px dashed #e5e5ea;font-size:12px"><div style="font-weight:600">${idx+1}. ${r.room}·${(r.techs||[r.tech]).join('、')}(${r.startTime||''})</div>${items}</div>`;
   });
   const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=270;
-  mask.innerHTML=`<div class="modal" style="max-width:440px"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button><h3>🕒 总钟数明细（${rooms.length}单）</h3>${rows||'<div style="color:#aaa;text-align:center;padding:12px">今日暂无</div>'}<div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
+  mask.innerHTML=`<div class="modal" style="max-width:440px"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button><h3>🕒 总钟数明细(${rooms.length}单)</h3>${rows||'<div style="color:#aaa;text-align:center;padding:12px">今日暂无</div>'}<div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
   document.body.appendChild(mask);
 }
 function openExtras(){
@@ -324,7 +324,7 @@ function openExtras(){
   const rooms=d.rooms||[];
   let rows='';
   rooms.forEach(r=>{
-    (r.items||[]).forEach((it,idx)=>{ if(idx===0) return; rows+=`<div style="padding:6px 0;border-bottom:1px dashed #e5e5ea;font-size:12px"><span style="font-weight:600">· ${r.room} ${(r.techs||[r.tech]).join('、')}</span><span style="color:#555">加钟¥${it.orig}${it.fin!==it.orig?('→'+it.fin):''}${(it.techs&&it.techs.length)?'｜'+it.techs.join('/'):''}（${r.startTime||''}）</span></div>`; });
+    (r.items||[]).forEach((it,idx)=>{ if(idx===0) return; const atTxt=it.at||r.startTime||''; rows+=`<div style="padding:6px 0;border-bottom:1px dashed #e5e5ea;font-size:12px"><span style="font-weight:600">· ${r.room} ${(r.techs||[r.tech]).join('、')}</span><span style="color:#555">加钟¥${it.orig}${it.fin!==it.orig?('→'+it.fin):''}${(it.techs&&it.techs.length)?'|'+it.techs.join('/'):''}【${atTxt}】</span></div>`; });
   });
   const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=270;
   mask.innerHTML=`<div class="modal" style="max-width:440px"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button><h3>➕ 加钟数明细</h3>${rows||'<div style="color:#aaa;text-align:center;padding:12px">今日无加钟</div>'}<div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
@@ -340,7 +340,7 @@ function openMonthly(){
   const cols={
     date:'日期',guest:'客流',ret:'退',walk:'走',clock:'总钟',extra:'加钟',should:'应收',get:'实收',disc:'折扣',cash:'现金',scan:'扫码',mt:'美团',comm:'提成'
   };
-  // 列配色（柔和，不用绿/大红/艳色）
+  // 列配色(柔和,不用绿/大红/艳色)
   const colTint=['#f0f2f7','#e8ecf4','#efe9f3','#f2ece6','#e9eef3','#ece9f4','#f0ead9','#eaf0f3','#eee9ee','#e9f0ee','#edf0e8','#eef0f4','#eee6ee'];
   const keys=Object.keys(cols);
   let rows='';
@@ -366,9 +366,9 @@ function openMonthly(){
   let totVal={date:'合计',guest:tot.guest,ret:tot.ret,walk:tot.walk,clock:tot.clock,extra:tot.extra,should:tot.should,get:tot.get,disc:tot.disc,cash:tot.cash,scan:tot.scan,mt:tot.mt,comm:tot.comm};
   let totRow='<tr>'+keys.map((c,ci)=>`<td style="padding:6px;border:1px solid #c4ccd8;background:${ci===0?'#3a4270':'#e2e7f0'};color:${ci===0?'#fff':'#33415e'};font-weight:800">${totVal[c]}</td>`).join('')+'</tr>';
   let projArr=Object.keys(projCount).map(p=>({p:parseInt(p),c:projCount[p]})).sort((a,b)=>b.c-a.c);
-  let projRow=projArr.length?('<div style="font-weight:700;color:#37415c;padding:6px 8px;border-top:1px solid #c4ccd8;font-size:12px">📊 项目合计：'+projArr.map(x=>`${x.p}元×${x.c}${x.p===798?'(双人)':''}`).join('　')+'</div>'):'';
+  let projRow=projArr.length?('<div style="font-weight:700;color:#37415c;padding:6px 8px;border-top:1px solid #c4ccd8;font-size:12px">📊 项目合计:'+projArr.map(x=>`${x.p}元×${x.c}${x.p===798?'(双人)':''}`).join(' ')+'</div>'):'';
   const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=280;
-  mask.innerHTML=`<div class="modal" style="max-width:480px"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button><h3>📅 近30天营业统计</h3>${projRow}<div style="overflow:auto;max-height:55vh;margin-top:8px;-webkit-overflow-scrolling:touch"><table style="border-collapse:collapse;font-size:12px;min-width:620px;width:100%"><thead>${header}</thead><tbody>${rows}${totRow}</tbody></table></div><div style="color:#8792a6;font-size:11px;padding:6px 0">客流=开房+退钟+走客；折扣=应收-实收；可上下/左右滑动看全</div><div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
+  mask.innerHTML=`<div class="modal" style="max-width:480px"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button><h3>📅 近30天营业统计</h3>${projRow}<div style="overflow:auto;max-height:55vh;margin-top:8px;-webkit-overflow-scrolling:touch"><table style="border-collapse:collapse;font-size:12px;min-width:620px;width:100%"><thead>${header}</thead><tbody>${rows}${totRow}</tbody></table></div><div style="color:#8792a6;font-size:11px;padding:6px 0">客流=开房+退钟+走客;折扣=应收-实收;可上下/左右滑动看全</div><div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
   document.body.appendChild(mask);
 }
 function openTechComm(){
@@ -407,23 +407,23 @@ function renderRoomTimes(records,rooms){
   order.forEach(rn=>{
     const rows=todays.filter(r=>r.room===rn);
     const retCount=rows.filter(r=>r.isReturn).length;
-    html += `<div class="ts" style="font-weight:700"><span>${rn}</span><span>${rows.length}单${retCount?'（退'+retCount+'）':''}</span></div>`;
+    html += `<div class="ts" style="font-weight:700"><span>${rn}</span><span>${rows.length}单${retCount?'(退'+retCount+')':''}</span></div>`;
     html += rows.length
       ? `<div style="background:#f9fafb;border-radius:8px;padding:5px 8px;margin-bottom:6px">`+rows.map(r=>{
           const techs=(r.techs&&r.techs.length)?r.techs.join('、'):(r.tech||'');
           if(r.isReturn){
             return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px;color:#c62828">
               <div style="font-weight:600">↩️ 退钟 · ${techs}</div>
-              <div style="color:#c62828">${r.startTime||'--'} 上 → ${r.endTime||'--'}（无提成）</div>
-              <div style="color:#888">原因：${r.retReason||'--'}</div>
+              <div style="color:#c62828">${r.startTime||'--'} 上 → ${r.endTime||'--'}(无提成)</div>
+              <div style="color:#888">原因:${r.retReason||'--'}</div>
             </div>`;
           }
           if(r.isWalk){
             const wt=(r.walkTechs&&r.walkTechs.length)?r.walkTechs.join('、'):(techs||'未填');
             return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px;color:#9c27b0">
-              <div style="font-weight:600">🚶 走客 · 试钟：${wt}</div>
-              <div style="color:#9c27b0">${r.startTime||'--'}（未消费）</div>
-              <div style="color:#888">来源：${r.source||'--'}｜原因：${r.walkReason||'--'}</div>
+              <div style="font-weight:600">🚶 走客 · 试钟:${wt}</div>
+              <div style="color:#9c27b0">${r.startTime||'--'}(未消费)</div>
+              <div style="color:#888">来源:${r.source||'--'}|原因:${r.walkReason||'--'}</div>
             </div>`;
           }
           let itHtml=(r.items||[]).map((it,ix)=>{
@@ -431,19 +431,20 @@ function renderRoomTimes(records,rooms){
             let commTxt;
             if(it.orig===798){ commTxt=its.map(t=>`${t}¥190`).join(' / '); }
             else { const cc=calcItemComm(it, r); commTxt=its.map((t,ti)=>ti===0?`${t}¥${cc}`:`${t}`).join(' / '); }
-            const priceTxt=`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元${it.orig===798?'（双人）':''}`;
-            return `<div style="color:#333">${ix+1}. ${priceTxt}｜${its.join('、')}｜提成 ${commTxt}</div>`;
+            const priceTxt=`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元${it.orig===798?'(双人)':''}`;
+            const atTxt=it.at?`【${ix===0?'主':'加'} ${it.at}】`:'';
+            return `<div style="color:#333">${ix+1}. ${atTxt}${priceTxt}|${its.join('、')}|提成 ${commTxt}</div>`;
           }).join('')||`1. ${r.itemCount||1}钟`;
           const pay=(r.pay&&r.pay.length)?r.pay.join('/'):'--';
-          const note=r.note?`<div style="color:#888">备注：${r.note}</div>`:'';
-          const editTxt=r.editRemark?`<div style="color:#6a1b9a">✎ 改钟：${r.editRemark}</div>`:'';
-          const namedTxt=(r.named&&r.namedTech)?`<div style="color:#e65100">⭐ 点钟：${r.namedTech} +20</div>`:'';
-          const srcTxt=r.source?`<div style="color:#555">客户来源：${r.source}</div>`:'';
+          const note=r.note?`<div style="color:#888">备注:${r.note}</div>`:'';
+          const editTxt=r.editRemark?`<div style="color:#6a1b9a">✎ 改钟:${r.editRemark}</div>`:'';
+          const namedTxt=(r.named&&r.namedTech)?`<div style="color:#e65100">⭐ 点钟:${r.namedTech} +20</div>`:'';
+          const srcTxt=r.source?`<div style="color:#555">客户来源:${r.source}</div>`:'';
           return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px">
-            <div style="font-weight:600;color:#333">技师：${techs}</div>
+            <div style="font-weight:600;color:#333">技师:${techs}</div>
             <div style="color:#555">${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</div>${itHtml}${namedTxt}${srcTxt}${editTxt}
-            <div style="color:#555">结账：${pay}</div>
-            <div style="color:#888">应收 ¥${r.origTotal||0} → 实收 ¥${r.total||0}（提成合计 ¥${r.commission||0}）</div>${note}
+            <div style="color:#555">结账:${pay}</div>
+            <div style="color:#888">应收 ¥${r.origTotal||0} → 实收 ¥${r.total||0}(提成合计 ¥${r.commission||0})</div>${note}
           </div>`;
         }).join('')+`</div>`
       : '<div style="color:#aaa;font-size:12px;padding:3px 0">今日暂无</div>';
@@ -469,7 +470,7 @@ function renderWeek(records){
     const safeKey=key.replace(/-/g,'');
     html+=`
       <div class="ts" style="cursor:pointer;${isToday?'background:#e8f0fe':''}" onclick="toggleDay('${safeKey}')">
-        <span class="tn">${key.slice(5)}${isToday?'（今）':''}</span>
+        <span class="tn">${key.slice(5)}${isToday?'(今)':''}</span>
         <span>${todays.length}单·${total}钟${retCount?'·退'+retCount:''}</span>
         <span style="font-size:11px;color:#e65100;font-weight:700">应¥${should}</span>
         <span style="color:#2e7d32;font-weight:700">实¥${get}</span>
@@ -490,33 +491,33 @@ function renderDayDetail(rows){
   const sumShould=norm.reduce((s,r)=>s+(r.origTotal||r.total||0),0);
   const sumGet=norm.reduce((s,r)=>s+(r.total||0),0);
   const sumComm=norm.reduce((s,r)=>s+(r.commission||0),0);
-  let h=`<div style="font-weight:700;color:#333;padding:3px 0">应收 ¥${sumShould} ｜ 实收 ¥${sumGet} ｜ 提成 ¥${sumComm}${rets.length?(' ｜ 退钟 '+rets.length+'单'):''}${walks.length?(' ｜ 走客 '+walks.length+'单'):''}</div>`;
+  let h=`<div style="font-weight:700;color:#333;padding:3px 0">应收 ¥${sumShould} | 实收 ¥${sumGet} | 提成 ¥${sumComm}${rets.length?(' | 退钟 '+rets.length+'单'):''}${walks.length?(' | 走客 '+walks.length+'单'):''}</div>`;
   h+=rows.map(r=>{
     const techs=(r.techs&&r.techs.length)?r.techs.join('、'):(r.tech||'');
-    const items=(r.items||[]).map(it=>`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元${it.orig===798?'(双人)':''}`).join('、')||`${r.itemCount||1}钟`;
+    const items=(r.items||[]).map(it=>`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元${it.orig===798?'(双人)':''}${it.at?('【'+it.at+'】'):''}`).join('、')||`${r.itemCount||1}钟`;
     const pay=(r.pay&&r.pay.length)?r.pay.join('/'):'--';
     if(r.isReturn){
       return `<div style="padding:4px 0;border-bottom:1px dashed #e5e5ea;color:#c62828">
         <div style="font-weight:600">↩️ 退钟 · ${r.room}·${techs}</div>
-        <div style="color:#c62828">${r.startTime||'--'}上→${r.endTime||'--'}下（无提成）</div>
-        <div style="color:#888">原因：${r.retReason||'--'}</div>
+        <div style="color:#c62828">${r.startTime||'--'}上→${r.endTime||'--'}下(无提成)</div>
+        <div style="color:#888">原因:${r.retReason||'--'}</div>
       </div>`;
     }
     if(r.isWalk){
       const wtt=(r.walkTechs&&r.walkTechs.length)?r.walkTechs.join('、'):(techs||'');
       return `<div style="padding:4px 0;border-bottom:1px dashed #e5e5ea;color:#9c27b0">
         <div style="font-weight:600">🚶 走客 · ${r.room}${wtt?('·试钟:'+wtt):''}</div>
-        <div style="color:#9c27b0">${r.startTime||'--'}（未消费）</div>
-        <div style="color:#888">来源：${r.source||'--'}｜原因：${r.walkReason||'--'}</div>
+        <div style="color:#9c27b0">${r.startTime||'--'}(未消费)</div>
+        <div style="color:#888">来源:${r.source||'--'}|原因:${r.walkReason||'--'}</div>
       </div>`;
     }
-    const note=r.note?`<div style="color:#888">备注：${r.note}</div>`:'';
-    const editTxt=r.editRemark?`<div style="color:#6a1b9a">✎ 改钟：${r.editRemark}</div>`:'';
-    const namedTxt=(r.named&&r.namedTech)?`<div style="color:#e65100">⭐ 点钟：${r.namedTech} +20</div>`:'';
+    const note=r.note?`<div style="color:#888">备注:${r.note}</div>`:'';
+    const editTxt=r.editRemark?`<div style="color:#6a1b9a">✎ 改钟:${r.editRemark}</div>`:'';
+    const namedTxt=(r.named&&r.namedTech)?`<div style="color:#e65100">⭐ 点钟:${r.namedTech} +20</div>`:'';
     return `<div style="padding:4px 0;border-bottom:1px dashed #e5e5ea">
       <div style="font-weight:600">${r.room}·${techs}</div>
-      <div style="color:#555">${r.startTime||'--'}上→${r.endTime||'--'}下 ｜ ${items}</div>
-      <div style="color:#555">结账：${pay} ｜ 应收¥${r.origTotal||0}→实收¥${r.total||0}</div>${namedTxt}${editTxt}${note}
+      <div style="color:#555">${r.startTime||'--'}上→${r.endTime||'--'}下 | ${items}</div>
+      <div style="color:#555">结账:${pay} | 应收¥${r.origTotal||0}→实收¥${r.total||0}</div>${namedTxt}${editTxt}${note}
     </div>`;
   }).join('');
   return h;
@@ -582,7 +583,7 @@ async function tick(){
     document.getElementById('updInfo').textContent='更新于 '+fmtClock();
   }catch(e){
     document.getElementById('statDot').className='off'; document.getElementById('statDot').textContent='● 离线';
-    document.getElementById('updInfo').textContent='连接失败：'+e.message;
+    document.getElementById('updInfo').textContent='连接失败:'+e.message;
   }
 }
 function loop(){ tick(); setInterval(tick,4000); }
