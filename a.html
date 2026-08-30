@@ -320,7 +320,7 @@ async function addClock(ri){
   } else {
     if(picked.length!==1){ toast('⚠️ 请选择1名技师'); return; }
   }
-  DB.rooms[ri].cur.items.push({price:selPrice,techs:picked.slice()});
+  DB.rooms[ri].cur.items.push({price:selPrice,techs:picked.slice(),at:new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})});
   delete clockPrices[ri];
   await save(); renderRooms(); toast('✅ 已加钟');
 }
@@ -470,7 +470,7 @@ async function confirmOut(ri,mask){
   let origTotal=0; cur.items.forEach(it=>{origTotal+=it.price;});
   const endNow=new Date();
   const payArr=[]; if(cash>0)payArr.push('现金¥'+cash); if(scan>0)payArr.push('扫码¥'+scan); if(mt>0)payArr.push('美团¥'+mt);
-  const itemsDetail=cur.items.map((it,i)=>({orig:it.price, fin:fin[i]||it.price, techs:it.techs||[]}));
+  const itemsDetail=cur.items.map((it,i)=>({orig:it.price, fin:fin[i]||it.price, techs:it.techs||[], at:it.at||''}));
   const note=(mask.querySelector('#settleNote')||{}).value||'';
   DB.records.push({date:currentBizKey(),time:new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}),room:DB.rooms[ri].name,techs:(cur.techs||[cur.tech]),total:total,commission:commission,origTotal:origTotal,itemCount:cur.items.length,extraCount:Math.max(0,cur.items.length-1),startTime:cur.startTime||'',endTime:endNow.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),pay:payArr,items:itemsDetail,note:note,named:named,namedTech:namedTech,source:cur.source||'',editRemark:cur.editRemark||'',newRule:true});
   DB.rooms[ri].status='free'; DB.rooms[ri].cur=null;
@@ -634,7 +634,8 @@ function renderRoomTimes(){
         if(it.orig===798){ commTxt=techs.map(t=>`${t}¥190`).join(' / '); }
         else { const cc=calcItemComm(it, r); commTxt=techs.map((t,ti)=>ti===0?`${t}￥${cc}`:`${t}`).join(' / '); }
         const priceTxt=`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元${it.orig===798?'(双人)':''}`;
-        return `<div style="color:#333">${ix+1}. ${priceTxt}|${techs.join('、')}|提成 ${commTxt}</div>`;
+        const atTxt=it.at?`<span style="color:#9c27b0">【${ix===0?'主':'加'} ${it.at}】</span>`:'';
+        return `<div style="color:#333">${ix+1}. ${atTxt}${priceTxt}|${techs.join('、')}|提成 ${commTxt}</div>`;
       }).join('')||`1. ${r.itemCount||1}钟`;
       const pay=(r.pay&&r.pay.length)?r.pay.join('/'):'--';
       const note=r.note?`<div style="color:#888">备注:${r.note}</div>`:'';
