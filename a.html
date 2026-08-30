@@ -582,7 +582,8 @@ async function efSave(idx,mask){
     const fin=parseFloat(mask.querySelector('[data-f="'+i+'"]').value)||orig;
     const itTechsStr=mask.querySelector('[data-it="'+i+'"]').value.trim();
     const itTechs=(itTechsStr?itTechsStr.split('/').map(s=>s.trim()).filter(Boolean):(orig===798?picked.slice():[picked[0]]));
-    items.push({orig:orig, fin:fin, techs:itTechs});
+    const oldAt=(r.items&&r.items[i])?r.items[i].at:'';
+    items.push({orig:orig, fin:fin, techs:itTechs, at:oldAt||''});
     origTotal+=orig; commission+=calcItemComm(orig, r);
   });
   // 点钟
