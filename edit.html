@@ -90,15 +90,22 @@
 <script>
 const DBURL = 'https://spa123-da150-default-rtdb.asia-southeast1.firebasedatabase.app/';
 // 单项目提成
-const COMMISSION = {128:60,158:75,198:90,298:140,398:190,498:240,598:290};
-// 双人项目:每名技师提成
 const PAIR_PRICE = 798;
 const PAIR_COMMISSION_PER = 190;
-const PROJS = [128,158,198,298,398,498,598,798];
 // 项目是否为双人
 function isPair(p){ return p===798; }
-// 某项目整单提成(双人按2人算)
-function itemTotalComm(price){ return isPair(price) ? (PAIR_COMMISSION_PER*2) : (COMMISSION[price]||0); }
+// 提成 = 价格×50%,四舍五入向上到5的倍数(尾数1-4→5,6-9→下一0,0/5不变)
+function comm50(price){
+  var v = Math.round(price*0.5);
+  var r = v % 10;
+  if(r >= 1 && r <= 4) v = v - r + 5;
+  else if(r >= 6 && r <= 9) v = v - r + 10;
+  return v;
+}
+// 某项目整单提成(双人每名技师190不变,其他按50%上取整)
+function itemTotalComm(price){ return isPair(price) ? (PAIR_COMMISSION_PER*2) : comm50(price); }
+// 某项目单名技师的提成展示
+function perTechComm(price){ return isPair(price) ? PAIR_COMMISSION_PER : comm50(price); }
 function pad2(n){return String(n).padStart(2,'0');}
 function calKey(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
 function bizKeyFromDate(d){ const nd=new Date(d); if(nd.getHours()<11) nd.setDate(nd.getDate()-1); return calKey(nd); }
@@ -138,12 +145,11 @@ function renderRooms(){
       const selHtml=DB.techs.map(t=>`<option>${t}</option>`).join('');
       b.innerHTML=`
         <div class="field"><label>选择技师(双人798需选2人)</label><div class="tags" id="tk${ri}">${DB.techs.map((t,i)=>`<span class="tag2" data-i="${i}" onclick="toggleTechPick(${ri},${i})">${t}</span>`).join('')}</div><div class="hint" id="th${ri}"></div></div>
-        <div class="field"><label>项目</label><div class="projects" id="pw${ri}"></div></div>
+        <div class="field"><label>项目价格(手动输入,双人798请点按钮)</label><div class="projects" id="pw${ri}"><div class="proj" style="grid-column:1/-1;border:2px solid #e2e7ee" onclick="pickPair(${ri})">798元(双人,每名190提成)</div></div><div style="display:flex;gap:8px;margin-top:8px"><input type="number" inputmode="numeric" id="pwi${ri}" placeholder="输入项目价格 ¥" style="flex:1;padding:12px 14px;border:1px solid #e2e7ee;border-radius:12px;font-size:15px;background:#f8fafc" oninput="manualPriceInput(${ri})"></div><div class="hint" id="ph${ri}"></div></div>
         <div class="field"><label>客户来源(单选)</label><div class="projects" id="src${ri}"><div class="proj">美团</div><div class="proj">老客</div><div class="proj">散客</div></div></div>
         <div class="field"><label>点钟(指名技师+20提成)</label><div style="display:flex;align-items:center;justify-content:space-between;background:#fafafa;border:1px solid #ddd;border-radius:10px;padding:11px 14px"><span style="font-size:14px">是否点钟</span><span class="tag2" id="nm${ri}" onclick="toggleNamed(${ri})" style="padding:8px 22px">否</span></div><div class="hint" id="nh${ri}"></div></div>
         <div class="btn-row"><button class="btn p" onclick="clockIn(${ri})">🔔 上钟</button></div>`;
       const pw=b.querySelector('#pw'+ri);
-      PROJS.forEach(p=>{const el=document.createElement('div');el.className='proj';el.innerHTML=`<span>${p}元${isPair(p)?'(双人)':''}</span><span class="price">提成 ${isPair(p)?(PAIR_COMMISSION_PER+'/人'):(COMMISSION[p]+'元')}</span>`;el.onclick=()=>{pw.querySelectorAll('.proj').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');pw.dataset.sel=p;updateTechHint(ri);};pw.appendChild(el);});
       const sw=b.querySelector('#src'+ri);
       if(sw){ sw.querySelectorAll('.proj').forEach(el=>{ el.onclick=()=>{ sw.querySelectorAll('.proj').forEach(x=>x.classList.remove('sel')); el.classList.add('sel'); sw.dataset.sel=el.textContent.trim(); }; }); }
     } else {
@@ -156,12 +162,11 @@ function renderRooms(){
           <div class="line"><span class="k">上钟</span><span class="v">${cur.startTime}</span></div>${items}
         </div>
         <div class="sec">加钟(可选择技师)</div>
-        <div class="field"><label>加钟技师(双人798需选2人)</label><div class="tags" id="ck${ri}">${DB.techs.map((t,i)=>`<span class="tag2" data-i="${i}" onclick="toggleClockTech(${ri},${i})">${t}</span>`).join('')}</div><div class="hint" id="ch${ri}"></div></div>
-        <div class="projects" id="pw${ri}"></div>
+        <div class="field"><label>加钟技师(双人798需选2人)</label><div class="tags" id="ck${ri}">${DB.techs.map((t,i)=>`<span class="tag2" data-i="${i}" onclick="toggleClockTech(${ri},${i})">${t}</span>`).join('')}</div></div>
+        <div class="field"><label>加钟项目价格(手动输入,双人798点按钮)</label><div class="projects" id="pw${ri}" style="margin-bottom:8px"><div class="proj" style="grid-column:1/-1;border:2px solid #e2e7ee" onclick="pickClockPair(${ri})">798元(双人,每名190提成)</div></div><div style="display:flex;gap:8px"><input type="number" inputmode="numeric" id="ckp${ri}" placeholder="输入加钟价格 ¥" style="flex:1;padding:12px 14px;border:1px solid #e2e7ee;border-radius:12px;font-size:15px;background:#f8fafc" oninput="clockPriceInput(${ri})"></div><div class="hint" id="ch${ri}"></div></div>
         <div class="btn-row"><button class="btn a" onclick="addClock(${ri})">加钟</button><button class="btn" style="background:#6a1b9a" onclick="openEditItem(${ri})">✎ 改钟</button><button class="btn r" onclick="openSettle(${ri})">下钟</button></div>
         <div class="btn-row"><button class="btn gr" onclick="openReturn(${ri})">↩️ 退钟</button></div>`;
       const pw=b.querySelector('#pw'+ri);
-      PROJS.forEach(p=>{const el=document.createElement('div');el.className='proj';el.innerHTML=`<span>${p}元${isPair(p)?'(双人)':''}</span>`;el.onclick=()=>{pw.querySelectorAll('.proj').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');pw.dataset.sel=(isPair(p)?('pair:'+p):p);};pw.appendChild(el);});
     }
     d.appendChild(b); box.appendChild(d);
   });
@@ -172,6 +177,45 @@ function toggleTechPick(ri,i){
   const el=h.querySelectorAll('.tag2')[i]; if(!el)return;
   el.classList.toggle('on');
   updateTechHint(ri);
+}
+// 手动输入价格存到房间的 pw 状态
+let manualPrices={};
+function manualPriceInput(ri){
+  const inp=document.getElementById('pwi'+ri); if(!inp)return;
+  const v=parseInt(inp.value)||0;
+  if(v>0){ manualPrices[ri]=v; } else { delete manualPrices[ri]; }
+  updateTechHint(ri);
+}
+// 点双人按钮:填入798
+function pickPair(ri){
+  const inp=document.getElementById('pwi'+ri); if(inp) inp.value=798;
+  manualPrices[ri]=798;
+  updateTechHint(ri);
+}
+// 取某房间当前选中的价格(手动输入或双人)
+function getSelPrice(ri){
+  if(manualPrices[ri]) return manualPrices[ri];
+  const inp=document.getElementById('pwi'+ri);
+  if(inp){ const v=parseInt(inp.value)||0; if(v>0) return v; }
+  return 0;
+}
+function setSelPrice(ri){
+  const v=getSelPrice(ri);
+  if(v) manualPrices[ri]=v;
+}
+function updateTechHint(ri){
+  const h=document.getElementById('th'+ri); if(!h)return;
+  const pw=document.getElementById('pw'+ri); const sel=pw?pw.dataset.sel:null;
+  const picked=getPickedTechs(ri);
+  const price=getSelPrice(ri);
+  const pairStr = (sel==='pair' || price===798);
+  if(pairStr){
+    h.textContent = picked.length===2 ? '✅ 已选2人' : (picked.length<2 ? '⚠️ 双人项目需选2名技师' : '⚠️ 双人项目只需2人');
+  } else {
+    if(picked.length===0){ h.textContent='请选择1名技师(双人项目选2人)'; }
+    else if(picked.length>1){ h.textContent='单项目建议选1人,如需换人请重选'; }
+    else { h.textContent=''; }
+  }
 }
 let namedFlags={};
 function toggleNamed(ri){
@@ -200,12 +244,14 @@ function updateTechHint(ri){
 }
 
 async function clockIn(ri){
-  const pw=document.getElementById('pw'+ri); const rawSel=pw.dataset.sel;
-  const selPrice=parseInt(String(rawSel).replace('pair:',''));
-  if(!rawSel){toast('请先选项目');return;}
+  const pw=document.getElementById('pw'+ri); const rawSel=pw?pw.dataset.sel:null;
+  const manual=manualPrices[ri]||0;
+  const selPair = (rawSel==='pair' || manual===798);
+  const selPrice = selPair ? 798 : manual;
+  if(!selPrice){toast('请先输入项目价格或选双人');return;}
   const picked=getPickedTechs(ri);
-  if(isPair(selPrice) && picked.length !== 2){ toast('⚠️ 双人项目需选2名技师'); return; }
-  if(!isPair(selPrice) && picked.length !== 1){ toast('⚠️ 请选择1名技师'); return; }
+  if(selPair && picked.length !== 2){ toast('⚠️ 双人项目需选2名技师'); return; }
+  if(!selPair && picked.length !== 1){ toast('⚠️ 请选择1名技师'); return; }
   const named=!!namedFlags[ri];
   const firstTech=picked[0]||'';
   const sw=document.getElementById('src'+ri);
@@ -214,6 +260,7 @@ async function clockIn(ri){
   DB.rooms[ri].status='busy';
   DB.rooms[ri].cur={techs:picked,startTime:new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),items:[{price:selPrice,techs:picked.slice()}],named:named,namedTech:named?firstTech:'',source:source};
   namedFlags[ri]=false;
+  delete manualPrices[ri];
   await save(); renderRooms(); toast('✅ 上钟成功');
 }
 function toggleClockTech(ri,i){
@@ -225,36 +272,55 @@ function getClockTechs(ri){
   const h=document.getElementById('ck'+ri); if(!h)return[];
   const out=[]; h.querySelectorAll('.tag2.on').forEach(el=>out.push(el.textContent)); return out;
 }
+// 加钟手动输入价格
+let clockPrices={};
+function clockPriceInput(ri){
+  const inp=document.getElementById('ckp'+ri); if(!inp)return;
+  const v=parseInt(inp.value)||0;
+  if(v>0){ clockPrices[ri]=v; } else { delete clockPrices[ri]; }
+  updateClockHint(ri);
+}
+function pickClockPair(ri){
+  const inp=document.getElementById('ckp'+ri); if(inp) inp.value=798;
+  clockPrices[ri]=798;
+  updateClockHint(ri);
+}
+function getClockPrice(ri){
+  if(clockPrices[ri]) return clockPrices[ri];
+  const inp=document.getElementById('ckp'+ri);
+  if(inp){ const v=parseInt(inp.value)||0; if(v>0) return v; }
+  return 0;
+}
 function updateClockHint(ri){
   const h=document.getElementById('ch'+ri); if(!h)return;
-  const pw=document.getElementById('pw'+ri); const sel=pw?pw.dataset.sel:null;
   const picked=getClockTechs(ri);
-  const pair = sel && isPair(parseInt(String(sel).replace('pair:','')||sel));
+  const price=getClockPrice(ri);
+  const pair=(price===798);
+  if(price===0){ h.textContent='请输入加钟价格'; return; }
   if(pair){ h.textContent = picked.length===2 ? '✅ 已选2人' : (picked.length<2?'⚠️ 双人项目需选2名技师':'⚠️ 双人项目只需2人'); }
-  else { h.textContent = picked.length===1 ? '' : '请选择1名技师(双人项目选2人)'; }
+  else { h.textContent = picked.length===1 ? '✅ 已选1人' : '请选择1名技师(双人项目选2人)'; }
 }
 async function addClock(ri){
-  const pw=document.getElementById('pw'+ri); const rawSel=pw.dataset.sel;
-  const selPrice=parseInt(String(rawSel).replace('pair:',''));
-  if(!rawSel){toast('请先选要加的项目');return;}
+  const selPrice=getClockPrice(ri);
+  if(!selPrice){toast('请先输入加钟价格');return;}
   const picked=getClockTechs(ri);
-  if(isPair(selPrice)){
+  if(selPrice===798){
     if(picked.length!==2){ toast('⚠️ 双人项目需选2名技师'); return; }
   } else {
     if(picked.length!==1){ toast('⚠️ 请选择1名技师'); return; }
   }
   DB.rooms[ri].cur.items.push({price:selPrice,techs:picked.slice()});
+  delete clockPrices[ri];
   await save(); renderRooms(); toast('✅ 已加钟');
 }
 function openEditItem(ri,itemIdx){
   const cur=DB.rooms[ri].cur;
   const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=255;
   let rows=cur.items.map((it,i)=>{
-    const priceOpts=PROJS.map(p=>`<option value="${p}" ${p===it.price?'selected':''}>${p}元${isPair(p)?'(双人)':''}</option>`).join('');
     return `<div style="border:1px solid #eee;border-radius:8px;padding:8px;margin-bottom:8px">
       <div style="font-weight:600;font-size:14px;margin-bottom:6px">项目${i+1}:${it.price}元${(it.techs&&it.techs.length>1)?'('+it.techs.join('/')+')':''}</div>
       <div style="display:flex;gap:6px;align-items:center">
-        <select data-editprice="${i}" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px">${priceOpts}</select>
+        <input type="number" inputmode="numeric" data-editprice="${i}" value="${it.price}" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:14px">
         <span style="display:flex;justify-content:space-between"><button type="button" style="background:#fee;color:#c62828;border:none;border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer" onclick="delEditItem(${ri},${i},this)">删除</button></span>
       </div>
     </div>`;
@@ -278,7 +344,7 @@ function confirmEditItems(ri,mask){
   const remark=((mask.querySelector('#editRemark')||{}).value||'').trim();
   if(!remark){ toast('⚠️ 改钟必须填写备注'); return; }
   // 应用改价
-  mask.querySelectorAll('select[data-editprice]').forEach(sel=>{
+  mask.querySelectorAll('[data-editprice]').forEach(sel=>{
     const idx=parseInt(sel.getAttribute('data-editprice'));
     const newPrice=parseInt(sel.value);
     const it=DB.rooms[ri].cur.items[idx];
@@ -413,10 +479,9 @@ function editRecordFull(idx){
   const tags=DB.techs.map(t=>`<span class="tag2 ${curTechs.indexOf(t)>=0?'on':''}" data-t="${t}" onclick="efPick(this)">${t}</span>`).join('');
   // 项目编辑
   const itemRows=(r.items||[]).map((it,i)=>{
-    const priceOpts=PROJS.map(p=>`<option value="${p}" ${p===it.orig?'selected':''}>${p}元${isPair(p)?'(双人)':''}</option>`).join('');
     return `<div style="border:1px solid #eee;border-radius:8px;padding:8px;margin-bottom:8px">
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-        <select data-p="${i}" style="flex:1;min-width:110px;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px" onchange="efRecheck(event)">${priceOpts}</select>
+        <input type="number" inputmode="numeric" data-p="${i}" value="${it.orig}" style="flex:1;min-width:110px;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:14px" onchange="efRecheck(event)">
         <span style="color:#888;font-size:12px">实收</span>
         <input type="number" data-f="${i}" value="${it.fin!==undefined?it.fin:it.orig}" style="width:85px;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px">
         <span style="color:#888;font-size:12px">技师</span>
@@ -556,7 +621,7 @@ function renderRoomTimes(){
         const techs=it.techs&&it.techs.length?it.techs:(r.techs||[r.tech]);
         let commTxt;
         if(it.orig===798){ commTxt=techs.map(t=>`${t}¥190`).join(' / '); }
-        else { commTxt=techs.map((t,ti)=>ti===0?`${t}￥${({128:60,158:75,198:90,298:140,398:190,498:240,598:290}[it.orig]||0)}`:`${t}`).join(' / '); }
+        else { commTxt=techs.map((t,ti)=>ti===0?`${t}￥${comm50(it.orig)}`:`${t}`).join(' / '); }
         const priceTxt=`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元${it.orig===798?'(双人)':''}`;
         return `<div style="color:#333">${ix+1}. ${priceTxt}|${techs.join('、')}|提成 ${commTxt}</div>`;
       }).join('')||`1. ${r.itemCount||1}钟`;
@@ -613,7 +678,7 @@ function renderStats(){
   todays.forEach(r=>{
     (r.items||[]).forEach(it=>{
       const techs=it.techs&&it.techs.length?it.techs:(r.techs||[r.tech]);
-      const comm=isPair(it.orig)?(PAIR_COMMISSION_PER*techs.length):(COMMISSION[it.orig]||0);
+      const comm=isPair(it.orig)?(PAIR_COMMISSION_PER*techs.length):comm50(it.orig);
       const per=techs.length?Math.round(comm/techs.length):comm;
       techs.forEach(tn=>{ if(!map[tn])map[tn]={c:0,t:0}; map[tn].c+=1; map[tn].t+=per; });
     });
