@@ -170,7 +170,7 @@ function renderStats(records){
     if(r.mergeRule===true){
       // 整单合并:用已存提成,分给上钟单技师
       const techs=(r.techs&&r.techs.length)?r.techs:[r.tech];
-      const tc=r.commission||0;
+      const tc=(r.commission||0)-(r.named?20:0);
       const per=techs.length?Math.round(tc/techs.length):tc;
       techs.forEach(tn=>{ if(!map[tn])map[tn]={c:0,t:0}; map[tn].c+=1; map[tn].t+=per; });
       if(r.named && r.namedTech){ if(!map[r.namedTech])map[r.namedTech]={c:0,t:0}; map[r.namedTech].t+=20; }
@@ -207,7 +207,8 @@ function openTechMonthly(){
     // 整单合并规则(2026-08-31后):提成已按整单合并一次算好并存于 commission,直接分给上钟单技师
     if(r.mergeRule===true){
       const techs=(r.techs&&r.techs.length)?r.techs:[r.tech];
-      const totalComm=r.commission||0;
+      const namedBonus=(r.named?20:0);
+      const totalComm=(r.commission||0)-namedBonus; // 提成(去点钟+20)
       const per=techs.length?Math.round(totalComm/techs.length):totalComm;
       const nCnt=(r.itemCount||1);
       const nExtra=Math.max(0,nCnt-1);
@@ -268,7 +269,7 @@ function openTechMonthly(){
   mask.className='modal-mask show'; mask.style.zIndex=285;
   mask.innerHTML=`<div class="modal" style="max-width:100%;width:96vw"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
     <h3>📋 技师每日提成月报(近30天)</h3>
-    <div style="color:#8792a6;font-size:11px;padding:0 0 6px">行=技师|列=营业日(凌晨11点前归前一天)|绿格=当日提成金额,下方小字=主X加Y钟|★=点钟次数|下拉选技师看每日+加钟明细</div>
+    <div style="color:#8792a6;font-size:11px;padding:0 0 6px">行=技师|列=营业日(凌晨11点前归前一天)|绿格=当日提成金额,下方小字=主X加Y钟|★=点钟次数|下拉选技师看每日+加钟明细|规则:单技师整单合并算一次,换技师各算各的</div>
     <div style="overflow:auto;max-height:74vh;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;border:1px solid #d9dfe8;border-radius:8px">
       <table style="border-collapse:collapse;font-size:12px;min-width:960px;width:100%">
         <thead>${head}</thead>
@@ -575,7 +576,7 @@ function renderRank(records){
   todays.forEach(r=>{
     if(r.mergeRule===true){
       const techs=(r.techs&&r.techs.length)?r.techs:[r.tech];
-      const tc=r.commission||0;
+      const tc=(r.commission||0)-(r.named?20:0);
       const per=techs.length?Math.round(tc/techs.length):tc;
       techs.forEach(tn=>{ if(!techMap[tn])techMap[tn]={c:0,t:0}; techMap[tn].c+=1; techMap[tn].t+=per; });
       if(r.named&&r.namedTech){ if(!techMap[r.namedTech])techMap[r.namedTech]={c:0,t:0}; techMap[r.namedTech].t+=20; }
