@@ -167,6 +167,15 @@ function renderStats(records){
   document.getElementById('gTraffic').textContent=(todays.length+rets.length+walks.length);
   const map={};
   todays.forEach(r=>{
+    if(r.mergeRule===true){
+      // 整单合并:用已存提成,分给上钟单技师
+      const techs=(r.techs&&r.techs.length)?r.techs:[r.tech];
+      const tc=r.commission||0;
+      const per=techs.length?Math.round(tc/techs.length):tc;
+      techs.forEach(tn=>{ if(!map[tn])map[tn]={c:0,t:0}; map[tn].c+=1; map[tn].t+=per; });
+      if(r.named && r.namedTech){ if(!map[r.namedTech])map[r.namedTech]={c:0,t:0}; map[r.namedTech].t+=20; }
+      return;
+    }
     (r.items||[]).forEach(it=>{
       const techs=it.techs&&it.techs.length?it.techs:(r.techs||[r.tech]);
       const comm=calcItemComm(it, r);
@@ -195,6 +204,17 @@ function openTechMonthly(){
     const ix=dayIdx[r.date];
     if(ix===undefined) return;
     if(r.isReturn||r.isWalk) return; // 退钟/走客无提成
+    // 整单合并规则(2026-08-31后):提成已按整单合并一次算好并存于 commission,直接分给上钟单技师
+    if(r.mergeRule===true){
+      const techs=(r.techs&&r.techs.length)?r.techs:[r.tech];
+      const totalComm=r.commission||0;
+      const per=techs.length?Math.round(totalComm/techs.length):totalComm;
+      const nCnt=(r.itemCount||1);
+      const nExtra=Math.max(0,nCnt-1);
+      techs.forEach(tn=>{ if(!tn)return; const t=ensure(tn); t.days[ix]+=per; t.tot+=per; t.tots+=nCnt; t.ctots+=nExtra; t.cnt[ix]+=1; t.ccnt[ix]+=nExtra; t.detail[ix]=t.detail[ix]||[]; t.detail[ix].push({h:'整单合并',fin:0,techs:[tn],amt:per}); });
+      if(r.named&&r.namedTech){ const t=ensure(r.namedTech); t.days[ix]+=20; t.tot+=20; t.named+=1; t.detail[ix]=t.detail[ix]||[]; t.detail[ix].push({h:'⭐点钟',fin:0,techs:[],amt:20}); }
+      return;
+    }
     (r.items||[]).forEach((it,itx)=>{
       const techs=it.techs&&it.techs.length?it.techs:(r.techs||[]);
       const isExtra = itx>0; // 首钟之外均算加钟
@@ -429,7 +449,8 @@ function renderRoomTimes(records,rooms){
           let itHtml=(r.items||[]).map((it,ix)=>{
             const its=it.techs&&it.techs.length?it.techs:(r.techs||[r.tech]);
             let commTxt;
-            if(it.orig===798){ commTxt=its.map(t=>`${t}¥190`).join(' / '); }
+            if(r.mergeRule===true){ commTxt='合并'; } // 整单合并:提成不逐项分,看底部合计
+            else if(it.orig===798){ commTxt=its.map(t=>`${t}¥190`).join(' / '); }
             else { const cc=calcItemComm(it, r); commTxt=its.map((t,ti)=>ti===0?`${t}¥${cc}`:`${t}`).join(' / '); }
             const priceTxt=`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元${it.orig===798?'(双人)':''}`;
             const atTxt=it.at?`【${ix===0?'主':'加'} ${it.at}】`:'';
@@ -552,6 +573,14 @@ function renderRank(records){
   // 技师排行
   const techMap={};
   todays.forEach(r=>{
+    if(r.mergeRule===true){
+      const techs=(r.techs&&r.techs.length)?r.techs:[r.tech];
+      const tc=r.commission||0;
+      const per=techs.length?Math.round(tc/techs.length):tc;
+      techs.forEach(tn=>{ if(!techMap[tn])techMap[tn]={c:0,t:0}; techMap[tn].c+=1; techMap[tn].t+=per; });
+      if(r.named&&r.namedTech){ if(!techMap[r.namedTech])techMap[r.namedTech]={c:0,t:0}; techMap[r.namedTech].t+=20; }
+      return;
+    }
     (r.items||[]).forEach(it=>{
       const techs=it.techs&&it.techs.length?it.techs:(r.techs||[r.tech]);
       const c=(it.orig===798)?(190*techs.length):calcItemComm(it, r);
