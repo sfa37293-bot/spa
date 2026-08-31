@@ -425,15 +425,18 @@ async function confirmReturn(ri,mask){
 function openSettle(ri){
   const cur=DB.rooms[ri].cur;
   const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=250;
+  const mergeTotal=cur.items.reduce((s,it)=>s+(it.price===798?0:it.price),0); // 整单合并金额(非798项目累加)
+  const pairComm=cur.items.reduce((s,it)=>s+(it.price===798?190*2:0),0);
+  const mergeComm=(mergeTotal>0?comm50(mergeTotal):0)+pairComm;                // 整单合并算一次提成+798另算
   const items=cur.items.map((it,i)=>{
-    const c=itemTotalComm(it.price);
     const who=(it.techs&&it.techs.length)?('|'+it.techs.join('/')):'';
-    return `<div class="settle-item"><div class="info"><div class="pname">项目 ${i+1} ${isPair(it.price)?'(双人)':''}(原价 ${it.price},提成 ¥${c}${who})</div></div><input type="number" value="${it.price}" data-i="${i}"></div>`;
+    return `<div class="settle-item"><div class="info"><div class="pname">项目 ${i+1} ${isPair(it.price)?'(双人)':''}(原价 ${it.price}${who})</div></div><input type="number" value="${it.price}" data-i="${i}"></div>`;
   }).join('');
   const origTotal=cur.items.reduce((s,it)=>s+it.price,0);
   const t=(cur.techs||[cur.tech]).join('、');
   mask.innerHTML=`<div class="modal"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
     <h3>下钟结算 · ${t}</h3><div style="color:#888;font-size:12px;margin-bottom:8px">修改项目价格可做折扣(提成按原价)</div>
+    <div style="font-size:13px;font-weight:700;background:#1d1d1f;color:#fff;border-radius:8px;padding:8px 12px;margin-bottom:8px">💰 整单提成(主+加合并一次算):¥${mergeComm} <span style="color:#bbb;font-size:11px;font-weight:500">(按整单 ¥${origTotal} ×50% 向上取整到5的倍数)</span></div>
     <div class="settle-list">${items}</div>
     <div style="font-size:13px;font-weight:700;margin:8px 0 6px">💳 组合结算(各方式分别填金额)</div>
     <div class="settle-item"><div class="info"><div class="pname">现金</div></div><input id="payCash" type="number" value="0"></div>
@@ -464,7 +467,10 @@ async function confirmOut(ri,mask){
   const scan=parseFloat(mask.querySelector('#payScan').value)||0;
   const mt=parseFloat(mask.querySelector('#payMT').value)||0;
   if(Math.abs((cash+scan+mt)-total)>0.01){ toast('⚠️ 组合金额合计需等于 '+total+'元'); return; }
-  let commission=0; cur.items.forEach(it=>{commission+=itemTotalComm(it.price);});
+  // 整单合并提成:主钟+所有加钟金额相加,按总价×50%向上取整到5的倍数,算一次(798双人另保留)
+  let mergeTotal=0, pairComm=0;
+  cur.items.forEach(it=>{ if(it.price===798){ pairComm+=190*2; } else { mergeTotal+=it.price; } });
+  let commission = (mergeTotal>0 ? itemTotalComm(mergeTotal) : 0) + pairComm;
   const named=!!cur.named; const namedTech=cur.namedTech||'';
   if(named) commission += 20;
   let origTotal=0; cur.items.forEach(it=>{origTotal+=it.price;});
@@ -472,7 +478,7 @@ async function confirmOut(ri,mask){
   const payArr=[]; if(cash>0)payArr.push('现金¥'+cash); if(scan>0)payArr.push('扫码¥'+scan); if(mt>0)payArr.push('美团¥'+mt);
   const itemsDetail=cur.items.map((it,i)=>({orig:it.price, fin:fin[i]||it.price, techs:it.techs||[], at:it.at||''}));
   const note=(mask.querySelector('#settleNote')||{}).value||'';
-  DB.records.push({date:currentBizKey(),time:new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}),room:DB.rooms[ri].name,techs:(cur.techs||[cur.tech]),total:total,commission:commission,origTotal:origTotal,itemCount:cur.items.length,extraCount:Math.max(0,cur.items.length-1),startTime:cur.startTime||'',endTime:endNow.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),pay:payArr,items:itemsDetail,note:note,named:named,namedTech:namedTech,source:cur.source||'',editRemark:cur.editRemark||'',newRule:true});
+  DB.records.push({date:currentBizKey(),time:new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}),room:DB.rooms[ri].name,techs:(cur.techs||[cur.tech]),total:total,commission:commission,origTotal:origTotal,mergeTotal:mergeTotal,mergeRule:true,itemCount:cur.items.length,extraCount:Math.max(0,cur.items.length-1),startTime:cur.startTime||'',endTime:endNow.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),pay:payArr,items:itemsDetail,note:note,named:named,namedTech:namedTech,source:cur.source||'',editRemark:cur.editRemark||'',newRule:true});
   DB.rooms[ri].status='free'; DB.rooms[ri].cur=null;
   mask.remove(); await save(); renderRooms(); toast('✅ 已结算 共 ¥'+total);
 }
@@ -575,7 +581,7 @@ async function efSave(idx,mask){
   const mt=parseFloat(mask.querySelector('#efMT').value)||0;
   if(Math.abs((cash+scan+mt)-newTotal)>0.01){ toast('⚠️ 现金+扫码+美团 需等于实收总额'); return; }
   // 项目
-  let origTotal=0, commission=0; const items=[];
+  let origTotal=0, mergeTotal=0, pairComm=0; const items=[];
   mask.querySelectorAll('[data-p]').forEach(sel=>{
     const i=parseInt(sel.getAttribute('data-p'));
     const orig=parseInt(sel.value);
@@ -584,8 +590,11 @@ async function efSave(idx,mask){
     const itTechs=(itTechsStr?itTechsStr.split('/').map(s=>s.trim()).filter(Boolean):(orig===798?picked.slice():[picked[0]]));
     const oldAt=(r.items&&r.items[i])?r.items[i].at:'';
     items.push({orig:orig, fin:fin, techs:itTechs, at:oldAt||''});
-    origTotal+=orig; commission+=calcItemComm(orig, r);
+    origTotal+=orig;
+    if(orig===798){ pairComm+=190*2; } else { mergeTotal+=orig; }
   });
+  // 整单合并提成(主+加合计一次算;798另保留)
+  let commission = (mergeTotal>0 ? calcItemComm(mergeTotal, r) : 0) + pairComm;
   // 点钟
   const named=mask.querySelector('#efNamed').value==='1';
   const namedTech=named?((r.namedTech)||picked[0]||''):'';
@@ -600,7 +609,7 @@ async function efSave(idx,mask){
   // 写回
   r.techs=picked.slice();
   r.startTime=startTime; r.endTime=endTime;
-  r.items=items; r.origTotal=origTotal; r.commission=commission; r.total=newTotal;
+  r.items=items; r.origTotal=origTotal; r.commission=commission; r.total=newTotal; r.mergeTotal=mergeTotal; r.mergeRule=true;
   r.pay=payArr; r.note=note; r.source=src; r.named=named; r.namedTech=namedTech;
   mask.remove(); await save(); renderRoomTimes(); renderStats(); renderSourceStats(); toast('✅ 整单已更新');
 }
