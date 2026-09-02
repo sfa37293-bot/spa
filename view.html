@@ -134,7 +134,7 @@ function renderRooms(rooms){
     const div=document.createElement('div'); div.className='room';
     let body;
     if(busy){
-      const items = room.cur.items.map((it,i)=>{ const atTxt=it.at?`<span style="color:#9c27b0;font-size:11px">【加钟 ${it.at}】</span>`:''; return `<div class="line"><span>项目${i+1}${it.price===798?'(双人)':''}${atTxt}</span><span>¥${it.price}</span></div>`; }).join('');
+      const items = (room.cur.items||[]).map((it,i)=>{ const atTxt=it.at?`<span style="color:#9c27b0;font-size:11px">【加钟 ${it.at}】</span>`:''; return `<div class="line"><span>项目${i+1}${it.price===798?'(双人)':''}${atTxt}</span><span>¥${it.price}</span></div>`; }).join('');
       const techs=(room.cur.techs&&room.cur.techs.length)?room.cur.techs.join('、'):(room.cur.tech||'');
       body=`<div class="line"><span>技师</span><span>${techs}</span></div>
             <div class="line"><span>上钟</span><span>${room.cur.startTime||''}</span></div>${items}`;
