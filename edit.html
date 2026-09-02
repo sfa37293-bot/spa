@@ -212,7 +212,7 @@ function renderRooms(){
     } else {
       const cur=room.cur;
       const techsStr=(cur.techs||[cur.tech]).join('、');
-      const items=cur.items.map((it,i)=>`<div class="line"><span class="k">项目${i+1}</span><span class="v">${it.price}元${(it.techs&&it.techs.length>1)?'·'+it.techs.join('/'):''} <span style="color:#007aff;font-size:12px;cursor:pointer" onclick="openEditItem(${ri},${i})">✎改</span></span></div>`).join('');
+      const items=(cur.items||[]).map((it,i)=>`<div class="line"><span class="k">项目${i+1}</span><span class="v">${it.price}元${(it.techs&&it.techs.length>1)?'·'+it.techs.join('/'):''} <span style="color:#007aff;font-size:12px;cursor:pointer" onclick="openEditItem(${ri},${i})">✎改</span></span></div>`).join('');
       b.innerHTML=`
         <div class="cur-info">
           <div class="line"><span class="k">技师</span><span class="v">${techsStr}</span></div>
