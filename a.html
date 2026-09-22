@@ -114,6 +114,33 @@ function comm50(price){
   else if(r >= 6 && r <= 9) v = v - r + 10;
   return v;
 }
+// 手输金额(2026-09-22 追加):价目表外的价格, 提成固定按 50%(comm50)算
+const MANUAL_MAX=99999;
+function clampManual(s){
+  var v=parseInt(String(s).replace(/[^0-9]/g,''),10);
+  if(isNaN(v)||v<=0) return 0;
+  return v>MANUAL_MAX?MANUAL_MAX:v;
+}
+// 上钟:手输框实时同步(写入 manualPrices / 清掉价目按钮选中态)
+function syncManual(ri){
+  var el=document.getElementById('pwi'+ri); if(!el) return;
+  var v=clampManual(el.value);
+  var box=document.getElementById('pwm'+ri);
+  if(box) box.textContent = v>0 ? ('提成 '+commOf(v)+' 元'+(PROJ_COMM[v]!==undefined?'（价目表价）':'（按 50% 算）')) : '提成按 50% 算';
+  if(v>0){ manualPrices[ri]=v; clearProjSel(ri); }
+  else if(!document.querySelector('#pw'+ri+' .proj.sel')){ manualPrices[ri]=0; }
+  updateTechHint(ri);
+}
+// 加钟:手输框实时同步(写入 clockPrices / 清掉价目按钮选中态)
+function syncManualClock(ri){
+  var el=document.getElementById('ckp'+ri); if(!el) return;
+  var v=clampManual(el.value);
+  var box=document.getElementById('ckm'+ri);
+  if(box) box.textContent = v>0 ? ('提成 '+commOf(v)+' 元'+(PROJ_COMM[v]!==undefined?'（价目表价）':'（按 50% 算）')) : '提成按 50% 算';
+  if(v>0){ clockPrices[ri]=v; clearClockSel(ri); }
+  else if(!document.querySelector('#pw'+ri+' .proj.sel')){ clockPrices[ri]=0; }
+  updateClockHint(ri);
+}
 // 是否用新算法(50%):仅当记录带 newRule:true 标记(2026-08-30 11:00后录入)
 function isNewRule(r){ return !!(r && r.newRule===true); }
 // 单项目整单提成(双人每名190不变;普通项目按 newRule 分新/旧算法)
@@ -212,7 +239,7 @@ function renderRooms(){
       const selHtml=DB.techs.map(t=>`<option>${t}</option>`).join('');
       b.innerHTML=`
         <div class="field"><label>选择技师(双人798需选2人)</label><div class="tags" id="tk${ri}">${DB.techs.map((t,i)=>`<span class="tag2" data-i="${i}" onclick="toggleTechPick(${ri},${i})">${t}</span>`).join('')}</div><div class="hint" id="th${ri}"></div></div>
-        <div class="field"><label>项目价格(点选价目)</label><div class="projects" id="pw${ri}">${projBtns('pj',ri,'pickProj')}<div class="proj" id="pj${ri}_798" style="grid-column:1/-1;border:2px solid #e2e7ee" onclick="pickPair(${ri})">798元<span class="price">双人·每名190提成</span></div></div><div class="hint" id="ph${ri}"></div></div>
+        <div class="field"><label>项目价格(点选价目或手输)</label><div class="projects" id="pw${ri}">${projBtns('pj',ri,'pickProj')}<div class="proj" id="pj${ri}_798" style="grid-column:1/-1;border:2px solid #e2e7ee" onclick="pickPair(${ri})">798元<span class="price">双人·每名190提成</span></div></div><div class="hint" id="ph${ri}"></div><div style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="pwi${ri}" type="number" inputmode="numeric" placeholder="手输金额" oninput="syncManual(${ri})" style="flex:1;padding:9px 12px;border:1px solid #ddd;border-radius:10px;font-size:15px"><span id="pwm${ri}" style="font-size:12px;color:#8792a6;white-space:nowrap">提成按 50% 算</span></div></div>
         <div class="field"><label>客户来源(单选)</label><div class="projects" id="src${ri}"><div class="proj">美团</div><div class="proj">老客</div><div class="proj">散客</div></div></div>
         <div class="field"><label>点钟(指名技师+20提成)</label><div style="display:flex;align-items:center;justify-content:space-between;background:#fafafa;border:1px solid #ddd;border-radius:10px;padding:11px 14px"><span style="font-size:14px">是否点钟</span><span class="tag2" id="nm${ri}" onclick="toggleNamed(${ri})" style="padding:8px 22px">否</span></div><div class="hint" id="nh${ri}"></div></div>
         <div class="btn-row"><button class="btn p" onclick="clockIn(${ri})">🔔 上钟</button></div>`;
@@ -230,7 +257,7 @@ function renderRooms(){
         </div>
         <div class="sec">加钟(可选择技师)</div>
         <div class="field"><label>加钟技师(双人798需选2人)</label><div class="tags" id="ck${ri}">${DB.techs.map((t,i)=>`<span class="tag2" data-i="${i}" onclick="toggleClockTech(${ri},${i})">${t}</span>`).join('')}</div></div>
-        <div class="field"><label>加钟项目价格(点选价目)</label><div class="projects" id="pw${ri}" style="margin-bottom:8px">${projBtns('ckj',ri,'pickClockProj')}<div class="proj" id="ckj${ri}_798" style="grid-column:1/-1;border:2px solid #e2e7ee" onclick="pickClockPair(${ri})">798元<span class="price">双人·每名190提成</span></div></div><div class="hint" id="ch${ri}"></div></div>
+        <div class="field"><label>加钟项目价格(点选价目或手输)</label><div class="projects" id="pw${ri}" style="margin-bottom:8px">${projBtns('ckj',ri,'pickClockProj')}<div class="proj" id="ckj${ri}_798" style="grid-column:1/-1;border:2px solid #e2e7ee" onclick="pickClockPair(${ri})">798元<span class="price">双人·每名190提成</span></div></div><div class="hint" id="ch${ri}"></div><div style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="ckp${ri}" type="number" inputmode="numeric" placeholder="手输金额" oninput="syncManualClock(${ri})" style="flex:1;padding:9px 12px;border:1px solid #ddd;border-radius:10px;font-size:15px"><span id="ckm${ri}" style="font-size:12px;color:#8792a6;white-space:nowrap">提成按 50% 算</span></div></div>
         <div class="btn-row"><button class="btn a" onclick="addClock(${ri})">加钟</button><button class="btn" style="background:#6a1b9a" onclick="openEditItem(${ri})">✎ 改钟</button><button class="btn r" onclick="openSettle(${ri})">下钟</button></div>
         <div class="btn-row"><button class="btn gr" onclick="openReturn(${ri})">↩️ 退钟</button></div>`;
       const pw=b.querySelector('#pw'+ri);
@@ -252,6 +279,8 @@ function clearProjSel(ri){ const pw=document.getElementById('pw'+ri); if(pw) pw.
 function pickProj(ri,price){
   clearProjSel(ri);
   const el=document.getElementById('pj'+ri+'_'+price); if(el) el.classList.add('sel');
+  const inp=document.getElementById('pwi'+ri); if(inp) inp.value='';
+  const box=document.getElementById('pwm'+ri); if(box) box.textContent='提成按 50% 算';
   manualPrices[ri]=price;
   updateTechHint(ri);
 }
@@ -259,6 +288,8 @@ function pickProj(ri,price){
 function pickPair(ri){
   clearProjSel(ri);
   const el=document.getElementById('pj'+ri+'_798'); if(el) el.classList.add('sel');
+  const inp=document.getElementById('pwi'+ri); if(inp) inp.value='';
+  const box=document.getElementById('pwm'+ri); if(box) box.textContent='提成按 50% 算';
   manualPrices[ri]=798;
   updateTechHint(ri);
 }
@@ -315,7 +346,7 @@ async function clockIn(ri){
   const manual=manualPrices[ri]||0;
   const selPair = (rawSel==='pair' || manual===798);
   const selPrice = selPair ? 798 : manual;
-  if(!selPrice){toast('请先点选项目价目');return;}
+  if(!selPrice){toast('请先选择项目价目(或手输金额)');return;}
   const picked=getPickedTechs(ri);
   if(selPair && picked.length !== 2){ toast('⚠️ 双人项目需选2名技师'); return; }
   if(!selPair && picked.length !== 1){ toast('⚠️ 请选择1名技师'); return; }
@@ -346,12 +377,16 @@ function clearClockSel(ri){ const pw=document.getElementById('pw'+ri); if(pw) pw
 function pickClockProj(ri,price){
   clearClockSel(ri);
   const el=document.getElementById('ckj'+ri+'_'+price); if(el) el.classList.add('sel');
+  const inp=document.getElementById('ckp'+ri); if(inp) inp.value='';
+  const box=document.getElementById('ckm'+ri); if(box) box.textContent='提成按 50% 算';
   clockPrices[ri]=price;
   updateClockHint(ri);
 }
 function pickClockPair(ri){
   clearClockSel(ri);
   const el=document.getElementById('ckj'+ri+'_798'); if(el) el.classList.add('sel');
+  const inp=document.getElementById('ckp'+ri); if(inp) inp.value='';
+  const box=document.getElementById('ckm'+ri); if(box) box.textContent='提成按 50% 算';
   clockPrices[ri]=798;
   updateClockHint(ri);
 }
@@ -363,13 +398,13 @@ function updateClockHint(ri){
   const picked=getClockTechs(ri);
   const price=getClockPrice(ri);
   const pair=(price===798);
-  if(price===0){ h.textContent='请点选加钟价目'; return; }
+  if(price===0){ h.textContent='请点选加钟价目或手输金额'; return; }
   if(pair){ h.textContent = picked.length===2 ? '✅ 已选2人' : (picked.length<2?'⚠️ 双人项目需选2名技师':'⚠️ 双人项目只需2人'); }
   else { h.textContent = picked.length===1 ? '✅ 已选1人' : '请选择1名技师(双人项目选2人)'; }
 }
 async function addClock(ri){
   const selPrice=getClockPrice(ri);
-  if(!selPrice){toast('请先点选加钟价目');return;}
+  if(!selPrice){toast('请先选择加钟价目(或手输金额)');return;}
   const picked=getClockTechs(ri);
   if(selPrice===798){
     if(picked.length!==2){ toast('⚠️ 双人项目需选2名技师'); return; }
