@@ -106,16 +106,19 @@ function isPair(p){ return p===798; }
 const PAIR_COMMISSION_PER=190;
 // 旧算法:固定提成表(用于2026-08-30 11:00之前的记录,不带 newRule 标记)
 const OLD_COMM={128:60,158:75,198:90,298:140,398:190,498:240,598:290};
+// 新价目表提成(2026-09-22 店家指定):命中用表值,否则回退 comm50
+const PROJ_COMM={128:60,158:75,268:130,368:180,468:230,568:280};
+function commOf(price){ return PROJ_COMM[price]!==undefined ? PROJ_COMM[price] : comm50(price); }
 // 是否用新算法(50%):仅当记录带 newRule:true 标记(2026-08-30 11:00后录入)
 function isNewRule(r){ return !!(r && r.newRule===true); }
 // 单项目整单提成(双人每名190不变;普通项目按 newRule 分新/旧算法)
 function calcItemComm(it, r){
   var price = (typeof it==='object') ? (it.orig||it.price) : it;
   if(price===798) return PAIR_COMMISSION_PER*2;
-  return isNewRule(r) ? comm50(price) : (OLD_COMM[price]||comm50(price));
+  return isNewRule(r) ? commOf(price) : (OLD_COMM[price]||comm50(price));
 }
 // 双人项目单名技师提成190,其他:新规则50%上取整
-function itemTotalComm(price){ return isPair(price) ? 190*2 : comm50(price); }
+function itemTotalComm(price){ return isPair(price) ? 190*2 : commOf(price); }
 // 营业日:11点前(凌晨)归属前一天,11点及以后归属当天
 function bizKeyFromDate(d){ const nd=new Date(d); if(nd.getHours()<11) nd.setDate(nd.getDate()-1); return dc(nd); }
 function currentBizKey(){ return bizKeyFromDate(new Date()); }
