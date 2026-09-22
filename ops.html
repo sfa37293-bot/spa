@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>运营查看 · 只读数据看板</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:linear-gradient(180deg,#eef2f7 0%,#e6ecf3 100%);background-attachment:fixed;color:#1d1d1f;padding-bottom:36px}
+  .top{position:sticky;top:0;background:linear-gradient(135deg,#2d3561 0%,#1f2550 100%);color:#fff;padding:16px 18px;display:flex;justify-content:space-between;align-items:center;z-index:50;box-shadow:0 4px 16px rgba(0,0,0,.18)}
+  .top h1{font-size:18px;font-weight:800;letter-spacing:.5px}
+  .top .time{font-size:12px;opacity:.8;margin-top:3px;font-weight:500}
+  .live,.off{font-size:11px;padding:4px 10px;border-radius:20px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+  .live{background:linear-gradient(135deg,#34c759,#28a745);color:#fff}
+  .off{background:linear-gradient(135deg,#ff5a5a,#e53935);color:#fff}
+  .container{max-width:580px;margin:0 auto;padding:16px}
+  .rooms{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .room{background:#fff;border-radius:16px;padding:16px;box-shadow:0 4px 16px rgba(31,37,80,.08);border:1px solid rgba(255,255,255,.6)}
+  .room .rname{font-size:15px;font-weight:800;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+  .tag{display:inline-block;font-size:11px;padding:4px 12px;border-radius:20px;font-weight:700}
+  .tag.free{background:#e6f7ec;color:#1c7b3f}
+  .tag.busy{background:#fde8e8;color:#d13b3b}
+  .room .body{margin-top:10px;font-size:13px;color:#3a3a3a}
+  .room .body .line{display:flex;justify-content:space-between;padding:4px 0;color:#555;font-size:13px}
+  .room .body .line b{color:#1d1d1f}
+  .room .empty{color:#b0b5c0;font-size:13px;text-align:center;padding:16px 0}
+  .panel{background:#fff;border-radius:16px;padding:18px;margin-top:16px;box-shadow:0 4px 16px rgba(31,37,80,.07);border:1px solid rgba(255,255,255,.6)}
+  .panel .gt{font-size:15px;font-weight:800;margin-bottom:12px;color:#233}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .box{background:linear-gradient(180deg,#f7f9fc,#eef2f8);border-radius:14px;padding:12px;text-align:center;border:1px solid #e6ebf2}
+  .box .n{font-size:21px;font-weight:800;color:#2d3561}
+  .box .l{font-size:11px;color:#8792a6;margin-top:3px;font-weight:500}
+  .ts{display:flex;justify-content:space-between;align-items:center;padding:9px 4px;border-bottom:1px solid #f0f2f7;font-size:13px}
+  .ts .tn{font-weight:700;color:#2d3561}
+  .ts .tj{color:#1c7b3f;font-weight:800}
+  .foot{text-align:center;color:#9aa3b5;font-size:11px;padding:16px 0}
+  .upd{text-align:center;color:#9aa3b5;font-size:11px;padding:6px}
+  .modal-mask{position:fixed;inset:0;background:rgba(20,24,45,.55);z-index:200;display:none;justify-content:center;align-items:flex-start;padding:40px 16px;backdrop-filter:blur(2px)}
+  .modal-mask.show{display:flex}
+  .modal{background:#fff;border-radius:18px;width:100%;max-width:420px;padding:20px;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+  .modal h3{font-size:16px;margin-bottom:12px;color:#2d3561;font-weight:800}
+  .modal .close{float:right;background:none;border:none;font-size:20px;color:#9aa3b5;cursor:pointer}
+  .btn-row{display:flex;gap:10px;margin-top:14px}
+  .btn{flex:1;padding:13px;border:none;border-radius:12px;font-size:15px;font-weight:700;color:#fff;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.12)}
+  .btn.gr{background:linear-gradient(135deg,#9aa3b5,#7c8698)}
+</style>
+</head>
+<body>
+<div class="top">
+  <div>
+    <h1>运营查看 · 只读</h1>
+    <div class="time" id="clock"></div>
+  </div>
+  <span id="statDot" class="live">● 实时</span>
+</div>
+<div class="container">
+  <div style="background:#fff7e6;border:1px solid #ffe0a3;color:#8a5a00;border-radius:12px;padding:10px 14px;font-size:12px;font-weight:600;margin-bottom:12px;line-height:1.6">🔒 只读查看端 · 仅可查看，不可点单/修改<br>📅 数据自 2026-09-19 起留存，此前的历史数据本端不显示</div>
+  <div class="rooms" id="roomsBox"></div>
+  <div class="panel">
+    <div class="gt">📊 营业汇总</div>
+    <div class="grid">
+      <div class="box" style="cursor:pointer;background:#e8f0fe" onclick="openTraffic()"><div class="n" id="gTraffic">0</div><div class="l" style="color:#007aff">总客流 ▶</div></div>
+      <div class="box" style="cursor:pointer;background:#e8f0fe" onclick="openClocks()"><div class="n" id="gTotal">0</div><div class="l" style="color:#007aff">总钟数 ▶</div></div>
+      <div class="box" style="cursor:pointer;background:#e8f0fe" onclick="openExtras()"><div class="n" id="gExtra">0</div><div class="l" style="color:#007aff">加钟数 ▶</div></div>
+      <div class="box"><div class="n" id="gShould">0</div><div class="l">应收</div></div>
+      <div class="box" style="cursor:pointer;background:#e8f0fe" onclick="openPayChannels()"><div class="n" id="gGet">0</div><div class="l" style="color:#007aff">实收 ▶渠道</div></div>
+      <div class="box" style="cursor:pointer;background:#e8f0fe" onclick="openTechComm()"><div class="n" id="gComm">0</div><div class="l" style="color:#007aff">技师提成 ▶</div></div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="gt">🕒 房间上下钟时间</div>
+    <div id="roomTimes"></div>
+  </div>
+  <div class="panel">
+    <div class="gt">🧭 客户来源</div>
+    <div id="sourceStats"></div>
+  </div>
+  <div class="panel">
+    <div class="gt">🏆 项目和技师排行(近10天)</div>
+    <div id="rankList"></div>
+  </div>
+  <div class="panel">
+    <div class="gt">📅 近7天每日营业</div>
+    <div id="weekList"></div>
+  </div>
+  <div class="upd" id="updInfo">连接中...</div>
+  <div class="btn-row" style="margin-top:14px">
+    <button class="btn" style="background:#1d1d1f" onclick="openMonthly()">📅 月度营业统计</button>
+    <button class="btn" style="background:#1c7b3f" onclick="openTechMonthly()">📋 技师每日提成月报</button>
+  </div>
+  <div class="foot">实时同步 · 数据来自云端</div>
+</div>
+
+<script>
+const DBURL = 'https://spa123-da150-default-rtdb.asia-southeast1.firebasedatabase.app/';
+const CUTOFF = '2026-09-19'; // 只读端数据起点:此前历史不可见
+function dc(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function pad2(n){return String(n).padStart(2,'0');}
+// 提成 = 价格×50%,四舍五入向上到5的倍数(尾数1-4→5,6-9→下一0,0/5不变)
+function comm50(price){
+  var v = Math.round(price*0.5);
+  var r = v % 10;
+  if(r >= 1 && r <= 4) v = v - r + 5;
+  else if(r >= 6 && r <= 9) v = v - r + 10;
+  return v;
+}
+function isPair(p){ return p===798; }
+const PAIR_COMMISSION_PER=190;
+// 旧算法:固定提成表(用于2026-08-30 11:00之前的记录,不带 newRule 标记)
+const OLD_COMM={128:60,158:75,198:90,298:140,398:190,498:240,598:290};
+// 新价目表提成(2026-09-22 店家指定):命中用表值,否则回退 comm50
+const PROJ_COMM={128:60,158:75,268:130,368:180,468:230,568:280};
+function commOf(price){ return PROJ_COMM[price]!==undefined ? PROJ_COMM[price] : comm50(price); }
+// 是否用新算法(50%):仅当记录带 newRule:true 标记(2026-08-30 11:00后录入)
+function isNewRule(r){ return !!(r && r.newRule===true); }
+// 单项目整单提成(双人每名190不变;普通项目按 newRule 分新/旧算法)
+function calcItemComm(it, r){
+  var price = (typeof it==='object') ? (it.orig||it.price) : it;
+  if(price===798) return PAIR_COMMISSION_PER*2;
+  return isNewRule(r) ? commOf(price) : (OLD_COMM[price]||comm50(price));
+}
+// 双人项目单名技师提成190,其他:新规则50%上取整
+function itemTotalComm(price){ return isPair(price) ? 190*2 : commOf(price); }
+// 营业日:11点前(凌晨)归属前一天,11点及以后归属当天
+function bizKeyFromDate(d){ const nd=new Date(d); if(nd.getHours()<11) nd.setDate(nd.getDate()-1); return dc(nd); }
+function currentBizKey(){ return bizKeyFromDate(new Date()); }
+function fmtClock(){ const d=new Date(); return d.toLocaleDateString('zh-CN',{month:'long',day:'numeric'})+' '+d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+
+async function readNode(path){
+  const r = await fetch(DBURL+path+'.json', {cache:'no-store'});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return r.json();
+}
+
+function renderRooms(rooms){
+  const box=document.getElementById('roomsBox'); box.innerHTML='';
+  rooms.forEach(room=>{
+    const busy = room && room.status==='busy' && room.cur;
+    const div=document.createElement('div'); div.className='room';
+    let body;
+    if(busy){
+      const items = (room.cur.items||[]).map((it,i)=>{ const atTxt=it.at?`<span style="color:#9c27b0;font-size:11px">【加钟 ${it.at}】</span>`:''; return `<div class="line"><span>项目${i+1}${it.price===798?'(双人)':''}${atTxt}</span><span>¥${it.price}</span></div>`; }).join('');
+      const techs=(room.cur.techs&&room.cur.techs.length)?room.cur.techs.join('、'):(room.cur.tech||'');
+      body=`<div class="line"><span>技师</span><span>${techs}</span></div>
+            <div class="line"><span>上钟</span><span>${room.cur.startTime||''}</span></div>${items}`;
+    } else {
+      body='<div class="empty">空闲 · 可上钟</div>';
+    }
+    div.innerHTML=`<div class="rname">${room.name} <span class="tag ${busy?'busy':'free'}">${busy?'上钟中':'空闲'}</span></div><div class="body">${body}</div>`;
+    box.appendChild(div);
+  });
+}
+
+function renderStats(records){
+  records=records||[];
+  const today=currentBizKey();
+  const todays=records.filter(r=>r.date===today && !(r.isReturn||r.isWalk));
+  const totalClocks=todays.reduce((s,r)=>s+(r.itemCount||1),0);
+  const extraClocks=todays.reduce((s,r)=>s+(r.extraCount||0),0);
+  const should=todays.reduce((s,r)=>s+(r.origTotal||r.total||0),0);
+  const get=todays.reduce((s,r)=>s+(r.total||0),0);
+  const comm=todays.reduce((s,r)=>s+(r.commission||0),0);
+  document.getElementById('gTotal').textContent=totalClocks;
+  document.getElementById('gExtra').textContent=extraClocks;
+  document.getElementById('gShould').textContent=should;
+  document.getElementById('gGet').textContent=get;
+  document.getElementById('gComm').textContent=comm;
+  const todayAll=records.filter(r=>r.date===today);
+  const rets=todayAll.filter(r=>r.isReturn);
+  const walks=todayAll.filter(r=>r.isWalk);
+  viewTraffic={rooms:todays,rets:rets,walks:walks};
+  document.getElementById('gTraffic').textContent=(todays.length+rets.length+walks.length);
+  const map={};
+  todays.forEach(r=>{
+    if(r.mergeRule===true){
+      // 整单合并:用已存提成,分给上钟单技师
+      const techs=(r.techs&&r.techs.length)?r.techs:[r.tech];
+      const tc=(r.commission||0)-(r.named?20:0);
+      const per=techs.length?Math.round(tc/techs.length):tc;
+      techs.forEach(tn=>{ if(!map[tn])map[tn]={c:0,t:0}; map[tn].c+=1; map[tn].t+=per; });
+      if(r.named && r.namedTech){ if(!map[r.namedTech])map[r.namedTech]={c:0,t:0}; map[r.namedTech].t+=20; }
+      return;
+    }
+    (r.items||[]).forEach(it=>{
+      const techs=it.techs&&it.techs.length?it.techs:(r.techs||[r.tech]);
+      const comm=calcItemComm(it, r);
+      const per=techs.length?Math.round(comm/techs.length):comm;
+      techs.forEach(tn=>{ if(!map[tn])map[tn]={c:0,t:0}; map[tn].c+=1; map[tn].t+=per; });
+    });
+    if(r.named && r.namedTech){ if(!map[r.namedTech])map[r.namedTech]={c:0,t:0}; map[r.namedTech].t+=20; }
+  });
+  viewTechMap=map;
+}
+let viewTechMap={};
+let viewTraffic={rooms:[],rets:[],walks:[]};
+// 技师提成月报:近30天每天每人提成
+function openTechMonthly(){
+  const records=viewRecords||[];
+  const now=new Date();
+  const days=[];
+  for(let i=29;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i); const k=bizKeyFromDate(d); if(k>=CUTOFF) days.push(k); }
+  // 统计:tech -> day -> 金额;同时记每天钟数方便排错
+  const techMap={};
+  const dayIdx={};
+  days.forEach((k,ix)=>dayIdx[k]=ix);
+  function mkTech(){ return {days:new Array(30).fill(0),cnt:new Array(30).fill(0),ccnt:new Array(30).fill(0),tot:0,tots:0,ctots:0,detail:{},named:0}; }
+  function ensure(tn){ if(!techMap[tn])techMap[tn]=mkTech(); return techMap[tn]; }
+  records.forEach(r=>{
+    const ix=dayIdx[r.date];
+    if(ix===undefined) return;
+    if(r.isReturn||r.isWalk) return; // 退钟/走客无提成
+    // 整单合并规则(2026-08-31后):提成已按整单合并一次算好并存于 commission,直接分给上钟单技师
+    if(r.mergeRule===true){
+      const techs=(r.techs&&r.techs.length)?r.techs:[r.tech];
+      const namedBonus=(r.named?20:0);
+      const totalComm=(r.commission||0)-namedBonus; // 提成(去点钟+20)
+      const per=techs.length?Math.round(totalComm/techs.length):totalComm;
+      const nCnt=(r.itemCount||1);
+      const nExtra=Math.max(0,nCnt-1);
+      techs.forEach(tn=>{ if(!tn)return; const t=ensure(tn); t.days[ix]+=per; t.tot+=per; t.tots+=nCnt; t.ctots+=nExtra; t.cnt[ix]+=1; t.ccnt[ix]+=nExtra; t.detail[ix]=t.detail[ix]||[]; t.detail[ix].push({h:'整单合并',fin:0,techs:[tn],amt:per}); });
+      if(r.named&&r.namedTech){ const t=ensure(r.namedTech); t.days[ix]+=20; t.tot+=20; t.named+=1; t.detail[ix]=t.detail[ix]||[]; t.detail[ix].push({h:'⭐点钟',fin:0,techs:[],amt:20}); }
+      return;
+    }
+    (r.items||[]).forEach((it,itx)=>{
+      const techs=it.techs&&it.techs.length?it.techs:(r.techs||[]);
+      const isExtra = itx>0; // 首钟之外均算加钟
+      if(it.orig===798){
+        (techs.length?techs:[r.tech]).forEach(tn=>{ if(!tn)return; const t=ensure(tn); t.days[ix]+=190; t.tot+=190; t.tots+=1; if(isExtra){t.ccnt[ix]+=1;t.ctots+=1;}else{t.cnt[ix]+=1;} t.detail[ix]=t.detail[ix]||[]; t.detail[ix].push({h:(isExtra?'加':'主')+'-双798',fin:it.fin||it.orig,techs:[tn],amt:190}); });
+      } else {
+        const c=calcItemComm(it, r);
+        const per=techs.length?Math.round(c/techs.length):c;
+        (techs.length?techs:[r.tech]).forEach(tn=>{ if(!tn)return; const t=ensure(tn); t.days[ix]+=per; t.tot+=per; t.tots+=1; if(isExtra){t.ccnt[ix]+=1;t.ctots+=1;}else{t.cnt[ix]+=1;} t.detail[ix]=t.detail[ix]||[]; t.detail[ix].push({h:(isExtra?'加':'主')+'-'+it.orig,fin:it.fin||it.orig,techs:[tn],amt:per}); });
+      }
+    });
+    if(r.named&&r.namedTech){
+      const t=ensure(r.namedTech);
+      t.days[ix]+=20; t.tot+=20; t.named+=1;
+      t.detail[ix]=t.detail[ix]||[]; t.detail[ix].push({h:'⭐点钟',fin:0,techs:[],amt:20});
+    }
+  });
+  const names=Object.keys(techMap).sort((a,b)=>techMap[b].tot-techMap[a].tot);
+  // 生成表头
+  let head='<tr><td style="padding:6px;border:1px solid #c4ccd8;background:#3a4270;color:#fff;font-weight:700;white-space:nowrap">技师</td>';
+  days.forEach((k)=>{
+    const m=k.slice(5).replace('-','/');
+    head+=`<td style="padding:6px;border:1px solid #c4ccd8;background:#59648f;color:#fff;font-weight:700;font-size:11px;text-align:center;white-space:nowrap">${m}</td>`;
+  });
+  head+=`<td style="padding:6px;border:1px solid #c4ccd8;background:#2e7d32;color:#fff;font-weight:800;white-space:nowrap">合计(元/钟)</td></tr>`;
+  // 行:每个技师
+  let body='';
+  if(!names.length) body='<tr><td colspan="32" style="padding:14px;text-align:center;color:#aaa">近30天暂无提成数据</td></tr>';
+  names.forEach((n,ri)=>{
+    const tm=techMap[n];
+    let cells='';
+    days.forEach((k,ix)=>{
+      const amt=tm.days[ix], mc=tm.cnt[ix], ac=tm.ccnt[ix];
+      const sub = mc||ac ? (mc?'主'+mc:'')+(ac?'加'+ac:'')+'钟' : '';
+      cells+=`<td style="padding:3px 4px;border:1px solid #d9dfe8;text-align:center;white-space:nowrap;${amt?`color:#1c7b3f;font-weight:700;background:${ri%2?'#f2f8f3':'#eaf5ec'}`:'color:#c7cdd8'}">${amt?('¥'+amt):'·'}${sub?'<div style="font-size:10px;font-weight:500;color:#6b9b6b">'+sub+'</div>':''}</td>`;
+    });
+    const subT = tm.tots ? (tm.tots+'钟'+(tm.ctots?('(加'+tm.ctots+')'):'')) : '';
+    body+=`<tr><td style="padding:6px;border:1px solid #d9dfe8;font-weight:700;white-space:nowrap;background:#f7f8fb">${n}${tm.named?(`<span style="color:#e65100;font-size:10px">★${tm.named}点</span>`):''}</td>${cells}<td style="padding:6px;border:1px solid #c4ccd8;background:#e2e7f0;color:#33415e;font-weight:800;text-align:center">¥${tm.tot}<div style="font-size:10px;font-weight:600;color:#7c8698">${subT}</div></td></tr>`;
+  });
+  // 每天合计行
+  let dayTot='<tr><td style="padding:6px;border:1px solid #c4ccd8;background:#474f7e;color:#fff;font-weight:800">当日合计</td>';
+  let grand=0, grandS=0, grandA=0;
+  days.forEach((k,ix)=>{
+    let s=0, sc=0, sa=0; names.forEach(n=>{s+=techMap[n].days[ix]; sc+=techMap[n].cnt[ix]; sa+=techMap[n].ccnt[ix];}); grand+=s; grandS+=sc; grandA+=sa;
+    const style=s?{bg:'#dce9f7',c:'#0d47a1'}:{bg:'#eef1f6',c:'#8a93a6'};
+    const sub=(sc||sa)?('主'+sc+(sa?('加'+sa):'')):'';
+    dayTot+=`<td style="padding:5px;border:1px solid #c4ccd8;background:${style.bg};color:${style.c};font-weight:800;text-align:center">${s?('¥'+s):'·'}${sub?'<div style="font-size:9px;font-weight:600">'+sub+'</div>':''}</td>`;
+  });
+  dayTot+=`<td style="padding:6px;border:1px solid #c4ccd8;background:#2e7d32;color:#fff;font-weight:800;text-align:center">¥${grand}</td></tr>`;
+  const mask=document.createElement('div');
+  mask.className='modal-mask show'; mask.style.zIndex=285;
+  mask.innerHTML=`<div class="modal" style="max-width:100%;width:96vw"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
+    <h3>📋 技师每日提成月报(近30天)</h3>
+    <div style="color:#8792a6;font-size:11px;padding:0 0 6px">行=技师|列=营业日(凌晨11点前归前一天)|绿格=当日提成金额,下方小字=主X加Y钟|★=点钟次数|下拉选技师看每日+加钟明细|规则:单技师整单合并算一次,换技师各算各的</div>
+    <div style="overflow:auto;max-height:74vh;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;border:1px solid #d9dfe8;border-radius:8px">
+      <table style="border-collapse:collapse;font-size:12px;min-width:960px;width:100%">
+        <thead>${head}</thead>
+        <tbody>${body}${dayTot}</tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px;font-size:13px;font-weight:700;color:#37415c">👤 按技师查看每日提成(含加钟明细):</div>
+    <div id="techDrill"></div>
+    <div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div>
+  </div>`;
+  document.body.appendChild(mask);
+  // 生成下拉明细区
+  const drillBox=document.getElementById('techDrill');
+  if(!names.length){ drillBox.innerHTML='<div style="color:#aaa;font-size:12px">无可选技师</div>'; return; }
+  let selHtml='<select id="techSel" style="padding:8px;border-radius:8px;border:1px solid #d9dfe8;font-size:13px;width:100%">';
+  names.forEach(n=>{ const t=techMap[n]; selHtml+=`<option value="${n}">${n}(30天 ¥${t.tot}/ ${t.tots}钟${t.ctots?(',加'+t.ctots):''})</option>`; });
+  selHtml+='</select><div id="techDrillBody" style="margin-top:8px"></div>';
+  drillBox.innerHTML=selHtml;
+  const sel=document.getElementById('techSel');
+  sel.onchange=()=>renderTechDrill(sel.value, techMap, days);
+  renderTechDrill(sel.value, techMap, days);
+}
+function renderTechDrill(name, techMap, days){
+  const tm=techMap[name]; if(!tm){document.getElementById('techDrillBody').innerHTML='';return;}
+  let rows='';
+  for(let i=0;i<30;i++){
+    if(!tm.days[i] && !(tm.detail[i]||[]).length) continue;
+    const dayDetail=(tm.detail[i]||[]).map(e=>{
+      const tagColor = e.h.indexOf('加')===0 ? '#e65100' : (e.h==='⭐点钟' ? '#c2185b' : '#37415c');
+      let price='';
+      const m=e.h.match(/-(.+)$/);
+      if(m){ const o=m[1].replace('双',''); if(e.fin&&e.fin!=o){ price=o+'→'+e.fin+'元实收'; } else if(o!=='798'){ price=o+'元'; } }
+      return `<div style="padding:3px 0;font-size:12px"><span style="color:${tagColor};font-weight:700">${e.h==='⭐点钟'?'⭐点钟':e.h.replace('双-','双人').replace('-',' ')}</span>${price?' <span style="color:#888">('+price+')</span>':''}<span style="float:right;color:#1c7b3f;font-weight:700">¥${e.amt}</span></div>`;
+    }).join('');
+    rows+=`<div style="background:#f9fafb;border-radius:8px;padding:6px 10px;margin-bottom:6px">
+      <div style="font-weight:700;color:#2d3561;font-size:13px">${days[i].slice(5)}<span style="color:#1c7b3f"> ¥${tm.days[i]}</span><span style="color:#888;font-size:11px;font-weight:500;float:right">${tm.cnt[i]}主钟${tm.ccnt[i]?(' / 加钟'+tm.ccnt[i]):''}</span></div>
+      ${dayDetail}
+    </div>`;
+  }
+  const totalLine=`<div class="ts" style="border:none;border-top:1px solid #e5e5ea;margin-top:4px"><span style="font-weight:800">${name} 30天合计</span><span style="color:#0d47a1;font-weight:800">¥${tm.tot}<span style="font-size:11px;color:#888">(${tm.tots}钟${tm.ctots?(',其中加钟'+tm.ctots):''})</span></span></div>`;
+  document.getElementById('techDrillBody').innerHTML= rows
+    ? `<div style="font-weight:700;color:#2d3561;padding:4px 0;font-size:13px">${name} 每日提成明细(主/加钟):</div>`+rows+totalLine
+    : '<div style="color:#aaa;font-size:12px;padding:6px">该技师近30天无提成</div>';
+}
+function openTraffic(){
+  const d=viewTraffic||{rooms:[],rets:[],walks:[]};
+  const rooms=(d.rooms||[]).map((r,i)=>`<div class="ts" style="border:none"><span>${i+1}. ${r.room}·${(r.techs||[r.tech]).join('、')}</span><span style="color:#555">${r.startTime||''} 实收¥${r.total||0}</span></div>`).join('')||'<div style="color:#aaa;text-align:center;padding:8px">今日暂无开房</div>';
+  const rets=(d.rets||[]).map((r,i)=>`<div class="ts" style="border:none;color:#c62828"><span>${i+1}. ↩️${r.room}·${(r.techs||[r.tech]).join('、')}</span><span>${r.time||r.startTime||''} 原因:${r.retReason||'--'}</span></div>`).join('')||'<div style="color:#aaa;text-align:center;padding:8px">今日无退钟</div>';
+  const walks=(d.walks||[]).map((r,i)=>`<div class="ts" style="border:none;color:#9c27b0"><span>${i+1}. 🚶${r.room}${(r.walkTechs&&r.walkTechs.length)?('·试钟:'+r.walkTechs.join('/')):''}</span><span>${r.time||r.startTime||''} 来源:${r.source||'--'} 原因:${r.walkReason||'--'}</span></div>`).join('')||'<div style="color:#aaa;text-align:center;padding:8px">今日无走客</div>';
+  const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=270;
+  mask.innerHTML=`<div class="modal" style="max-width:440px"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
+    <h3>🧑‍🤝‍🧑 总客流详情</h3>
+    <div style="font-size:13px;font-weight:700;color:#333;margin:6px 0 4px">🛏️ 总开房(${(d.rooms||[]).length})</div>${rooms}
+    <div style="font-size:13px;font-weight:700;color:#c62828;margin:8px 0 4px">↩️ 退钟(${(d.rets||[]).length})</div>${rets}
+    <div style="font-size:13px;font-weight:700;color:#9c27b0;margin:8px 0 4px">🚶 走客(${(d.walks||[]).length})</div>${walks}
+    <div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
+  document.body.appendChild(mask);
+}
+function openClocks(){
+  const d=viewTraffic||{rooms:[]};
+  const rooms=d.rooms||[];
+  let rows='';
+  rooms.forEach((r,idx)=>{
+    const items=(r.items||[]).map((it,ix)=>{ const atTxt=it.at?`【加${it.at}】`:''; return `<div style="color:#555">${ix+1}. ${atTxt}￥${it.orig}${it.fin!==it.orig?('→'+it.fin):''}${it.orig===798?'（双人）':''}${(it.techs&&it.techs.length)?'｜'+it.techs.join('/'):''}</div>`; }).join('')||'<div style="color:#aaa">--</div>';
+    rows+=`<div style="padding:6px 0;border-bottom:1px dashed #e5e5ea;font-size:12px"><div style="font-weight:600">${idx+1}. ${r.room}·${(r.techs||[r.tech]).join('、')}(${r.startTime||''})</div>${items}</div>`;
+  });
+  const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=270;
+  mask.innerHTML=`<div class="modal" style="max-width:440px"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button><h3>🕒 总钟数明细(${rooms.length}单)</h3>${rows||'<div style="color:#aaa;text-align:center;padding:12px">今日暂无</div>'}<div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
+  document.body.appendChild(mask);
+}
+function openExtras(){
+  const d=viewTraffic||{rooms:[]};
+  const rooms=d.rooms||[];
+  let rows='';
+  rooms.forEach(r=>{
+    (r.items||[]).forEach((it,idx)=>{ if(idx===0) return; const atTxt=it.at||r.startTime||''; rows+=`<div style="padding:6px 0;border-bottom:1px dashed #e5e5ea;font-size:12px"><span style="font-weight:600">· ${r.room} ${(r.techs||[r.tech]).join('、')}</span><span style="color:#555">加钟¥${it.orig}${it.fin!==it.orig?('→'+it.fin):''}${(it.techs&&it.techs.length)?'|'+it.techs.join('/'):''}【${atTxt}】</span></div>`; });
+  });
+  const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=270;
+  mask.innerHTML=`<div class="modal" style="max-width:440px"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button><h3>➕ 加钟数明细</h3>${rows||'<div style="color:#aaa;text-align:center;padding:12px">今日无加钟</div>'}<div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
+  document.body.appendChild(mask);
+}
+function openMonthly(){
+  const records=viewRecords||[];
+  const days=[]; const now=new Date();
+  for(let i=29;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i); const k=bizKeyFromDate(d); if(k>=CUTOFF) days.push(k); }
+  const projCount={};
+  // 合计
+  const tot={guest:0,ret:0,walk:0,clock:0,extra:0,should:0,get:0,disc:0,comm:0,cash:0,scan:0,mt:0};
+  const cols={
+    date:'日期',guest:'客流',ret:'退',walk:'走',clock:'总钟',extra:'加钟',should:'应收',get:'实收',disc:'折扣',cash:'现金',scan:'扫码',mt:'美团',comm:'提成'
+  };
+  // 列配色(柔和,不用绿/大红/艳色)
+  const colTint=['#f0f2f7','#e8ecf4','#efe9f3','#f2ece6','#e9eef3','#ece9f4','#f0ead9','#eaf0f3','#eee9ee','#e9f0ee','#edf0e8','#eef0f4','#eee6ee'];
+  const keys=Object.keys(cols);
+  let rows='';
+  days.forEach(key=>{
+    const all=records.filter(r=>r.date===key);
+    const norm=all.filter(r=>!(r.isReturn||r.isWalk));
+    const rets=all.filter(r=>r.isReturn);
+    const walks=all.filter(r=>r.isWalk);
+    const clockN=norm.reduce((s,r)=>s+(r.itemCount||1),0);
+    const extraN=norm.reduce((s,r)=>s+(r.extraCount||0),0);
+    const should=norm.reduce((s,r)=>s+(r.origTotal||r.total||0),0);
+    const get=norm.reduce((s,r)=>s+(r.total||0),0);
+    const comm=norm.reduce((s,r)=>s+(r.commission||0),0);
+    const disc=Math.max(0,should-get);
+    const cC={cash:0,scan:0,mt:0};
+    norm.forEach(r=>{(r.pay||[]).forEach(p=>{const m=String(p).match(/^(.+?)¥(\d+)/); if(m){ if(m[1]=='现金')cC.cash+=parseFloat(m[2]); else if(m[1]=='扫码')cC.scan+=parseFloat(m[2]); else if(m[1]=='美团')cC.mt+=parseFloat(m[2]); }});});
+    norm.forEach(r=>{(r.items||[]).forEach(it=>{ projCount[it.orig]=(projCount[it.orig]||0)+1; });});
+    const v={date:key.slice(5),guest:norm.length+rets.length+walks.length,ret:rets.length,walk:walks.length,clock:clockN,extra:extraN,should:should,get:get,disc:disc,cash:cC.cash,scan:cC.scan,mt:cC.mt,comm:comm};
+    Object.keys(tot).forEach(k=>tot[k]+=v[k]);
+    rows+='<tr>'+keys.map((c,ci)=>`<td style="padding:5px;border:1px solid #d9dfe8;background:${ci===0?'#f7f8fb':colTint[ci]};font-weight:${ci===0?'700':'400'};white-space:nowrap">${v[c]}</td>`).join('')+'</tr>';
+  });
+  let header='<tr>'+keys.map((c,ci)=>`<td style="padding:6px;border:1px solid #c4ccd8;background:${ci===0?'#3a4270':'#59648f'};color:#fff;font-weight:700;font-size:11px;white-space:nowrap">${cols[c]}</td>`).join('')+'</tr>';
+  let totVal={date:'合计',guest:tot.guest,ret:tot.ret,walk:tot.walk,clock:tot.clock,extra:tot.extra,should:tot.should,get:tot.get,disc:tot.disc,cash:tot.cash,scan:tot.scan,mt:tot.mt,comm:tot.comm};
+  let totRow='<tr>'+keys.map((c,ci)=>`<td style="padding:6px;border:1px solid #c4ccd8;background:${ci===0?'#3a4270':'#e2e7f0'};color:${ci===0?'#fff':'#33415e'};font-weight:800">${totVal[c]}</td>`).join('')+'</tr>';
+  let projArr=Object.keys(projCount).map(p=>({p:parseInt(p),c:projCount[p]})).sort((a,b)=>b.c-a.c);
+  let projRow=projArr.length?('<div style="font-weight:700;color:#37415c;padding:6px 8px;border-top:1px solid #c4ccd8;font-size:12px">📊 项目合计:'+projArr.map(x=>`${x.p}元×${x.c}${x.p===798?'(双人)':''}`).join(' ')+'</div>'):'';
+  const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=280;
+  mask.innerHTML=`<div class="modal" style="max-width:480px"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button><h3>📅 近30天营业统计</h3>${projRow}<div style="overflow:auto;max-height:55vh;margin-top:8px;-webkit-overflow-scrolling:touch"><table style="border-collapse:collapse;font-size:12px;min-width:620px;width:100%"><thead>${header}</thead><tbody>${rows}${totRow}</tbody></table></div><div style="color:#8792a6;font-size:11px;padding:6px 0">客流=开房+退钟+走客;折扣=应收-实收;可上下/左右滑动看全</div><div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
+  document.body.appendChild(mask);
+}
+function openTechComm(){
+  const names=Object.keys(viewTechMap);
+  const rows=names.length
+    ? names.map((n,idx)=>`<div class="ts" style="border:none"><span style="color:#888;font-size:12px;width:22px">${idx+1}.</span><span class="tn" style="flex:1">${n}</span><span>${viewTechMap[n].c}钟</span><span class="tj">¥${viewTechMap[n].t}</span></div>`).join('')
+    : '<div style="text-align:center;color:#aaa;padding:16px">今日暂无提成</div>';
+  const mask=document.createElement('div');
+  mask.className='modal-mask show'; mask.style.zIndex=260;
+  mask.innerHTML=`<div class="modal" style="max-width:440px"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button><h3>👤 技师提成明细</h3>${rows}<div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
+  document.body.appendChild(mask);
+}
+let viewRecords=[];
+function openPayChannels(){
+  const today=currentBizKey();
+  const cmap={现金:0,扫码:0,美团:0};
+  (viewRecords||[]).filter(r=>r.date===today && !(r.isReturn||r.isWalk)).forEach(r=>{
+    (r.pay||[]).forEach(p=>{
+      const m=String(p).match(/^(.+?)¥(\d+)/);
+      if(m){ const ch=m[1]; const amt=parseFloat(m[2]); if(cmap[ch]!==undefined) cmap[ch]+=amt; }
+    });
+  });
+  const rows=['现金','扫码','美团'].map(ch=>`<div class="ts" style="border:none"><span class="tn" style="flex:1">${ch}</span><span style="color:#007aff;font-weight:700">¥${cmap[ch]}</span></div>`).join('');
+  const mask=document.createElement('div');
+  mask.className='modal-mask show'; mask.style.zIndex=260;
+  mask.innerHTML=`<div class="modal" style="max-width:440px"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button><h3>💳 收款渠道统计</h3>${rows}<div class="btn-row" style="margin-top:14px"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">关闭</button></div></div>`;
+  document.body.appendChild(mask);
+}
+
+function renderRoomTimes(records,rooms){
+  records=records||[]; rooms=rooms||[];
+  const today=currentBizKey();
+  const todays=records.filter(r=>r.date===today);
+  const order=rooms.map(r=>r.name);
+  let html='';
+  order.forEach(rn=>{
+    const rows=todays.filter(r=>r.room===rn);
+    const retCount=rows.filter(r=>r.isReturn).length;
+    html += `<div class="ts" style="font-weight:700"><span>${rn}</span><span>${rows.length}单${retCount?'(退'+retCount+')':''}</span></div>`;
+    html += rows.length
+      ? `<div style="background:#f9fafb;border-radius:8px;padding:5px 8px;margin-bottom:6px">`+rows.map(r=>{
+          const techs=(r.techs&&r.techs.length)?r.techs.join('、'):(r.tech||'');
+          if(r.isReturn){
+            return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px;color:#c62828">
+              <div style="font-weight:600">↩️ 退钟 · ${techs}</div>
+              <div style="color:#c62828">${r.startTime||'--'} 上 → ${r.endTime||'--'}(无提成)</div>
+              <div style="color:#888">原因:${r.retReason||'--'}</div>
+            </div>`;
+          }
+          if(r.isWalk){
+            const wt=(r.walkTechs&&r.walkTechs.length)?r.walkTechs.join('、'):(techs||'未填');
+            return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px;color:#9c27b0">
+              <div style="font-weight:600">🚶 走客 · 试钟:${wt}</div>
+              <div style="color:#9c27b0">${r.startTime||'--'}(未消费)</div>
+              <div style="color:#888">来源:${r.source||'--'}|原因:${r.walkReason||'--'}</div>
+            </div>`;
+          }
+          let itHtml=(r.items||[]).map((it,ix)=>{
+            const its=it.techs&&it.techs.length?it.techs:(r.techs||[r.tech]);
+            let commTxt;
+            if(r.mergeRule===true){ commTxt='合并'; } // 整单合并:提成不逐项分,看底部合计
+            else if(it.orig===798){ commTxt=its.map(t=>`${t}¥190`).join(' / '); }
+            else { const cc=calcItemComm(it, r); commTxt=its.map((t,ti)=>ti===0?`${t}¥${cc}`:`${t}`).join(' / '); }
+            const priceTxt=`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元${it.orig===798?'(双人)':''}`;
+            const atTxt=it.at?`【${ix===0?'主':'加'} ${it.at}】`:'';
+            return `<div style="color:#333">${ix+1}. ${atTxt}${priceTxt}|${its.join('、')}|提成 ${commTxt}</div>`;
+          }).join('')||`1. ${r.itemCount||1}钟`;
+          const pay=(r.pay&&r.pay.length)?r.pay.join('/'):'--';
+          const note=r.note?`<div style="color:#888">备注:${r.note}</div>`:'';
+          const editTxt=r.editRemark?`<div style="color:#6a1b9a">✎ 改钟:${r.editRemark}</div>`:'';
+          const namedTxt=(r.named&&r.namedTech)?`<div style="color:#e65100">⭐ 点钟:${r.namedTech} +20</div>`:'';
+          const srcTxt=r.source?`<div style="color:#555">客户来源:${r.source}</div>`:'';
+          return `<div style="padding:5px 0;border-bottom:1px dashed #e5e5ea;font-size:12px">
+            <div style="font-weight:600;color:#333">技师:${techs}</div>
+            <div style="color:#555">${r.startTime||'--'} 上 → ${r.endTime||'--'} 下</div>${itHtml}${namedTxt}${srcTxt}${editTxt}
+            <div style="color:#555">结账:${pay}</div>
+            <div style="color:#888">应收 ¥${r.origTotal||0} → 实收 ¥${r.total||0}(提成合计 ¥${r.commission||0})</div>${note}
+          </div>`;
+        }).join('')+`</div>`
+      : '<div style="color:#aaa;font-size:12px;padding:3px 0">今日暂无</div>';
+  });
+  document.getElementById('roomTimes').innerHTML = html || '<div style="color:#aaa;padding:10px">暂无数据</div>';
+}
+
+function renderWeek(records){
+  records=records||[];
+  const now=new Date();
+  const days=[];
+  for(let i=6;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i); const k=bizKeyFromDate(d); if(k>=CUTOFF) days.push(k); }
+  let html='';
+  days.forEach(key=>{
+    const todaysAll=records.filter(r=>r.date===key);
+    const todays=todaysAll.filter(r=>!(r.isReturn||r.isWalk));
+    const retCount=todaysAll.length-todays.length;
+    const total=todays.reduce((s,r)=>s+(r.itemCount||1),0);
+    const should=todays.reduce((s,r)=>s+(r.origTotal||r.total||0),0);
+    const get=todays.reduce((s,r)=>s+(r.total||0),0);
+    const comm=todays.reduce((s,r)=>s+(r.commission||0),0);
+    const isToday=(key===currentBizKey());
+    const safeKey=key.replace(/-/g,'');
+    html+=`
+      <div class="ts" style="cursor:pointer;${isToday?'background:#e8f0fe':''}" onclick="toggleDay('${safeKey}')">
+        <span class="tn">${key.slice(5)}${isToday?'(今)':''}</span>
+        <span>${todays.length}单·${total}钟${retCount?'·退'+retCount:''}</span>
+        <span style="font-size:11px;color:#e65100;font-weight:700">应¥${should}</span>
+        <span style="color:#2e7d32;font-weight:700">实¥${get}</span>
+      </div>
+      <div id="wk_${safeKey}" style="display:none;background:#f9fafb;border-radius:8px;padding:6px 8px;margin-bottom:6px;font-size:12px">${renderDayDetail(todaysAll)}</div>`;
+  });
+  document.getElementById('weekList').innerHTML=html||'<div style="color:#aaa;padding:10px">暂无</div>';
+}
+function toggleDay(safeKey){
+  const el=document.getElementById('wk_'+safeKey);
+  if(el) el.style.display = (el.style.display==='none')?'block':'none';
+}
+function renderDayDetail(rows){
+  if(!rows.length) return '<div style="color:#aaa">当日暂无记录</div>';
+  const norm=rows.filter(r=>!(r.isReturn||r.isWalk));
+  const rets=rows.filter(r=>r.isReturn);
+  const walks=rows.filter(r=>r.isWalk);
+  const sumShould=norm.reduce((s,r)=>s+(r.origTotal||r.total||0),0);
+  const sumGet=norm.reduce((s,r)=>s+(r.total||0),0);
+  const sumComm=norm.reduce((s,r)=>s+(r.commission||0),0);
+  let h=`<div style="font-weight:700;color:#333;padding:3px 0">应收 ¥${sumShould} | 实收 ¥${sumGet} | 提成 ¥${sumComm}${rets.length?(' | 退钟 '+rets.length+'单'):''}${walks.length?(' | 走客 '+walks.length+'单'):''}</div>`;
+  h+=rows.map(r=>{
+    const techs=(r.techs&&r.techs.length)?r.techs.join('、'):(r.tech||'');
+    const items=(r.items||[]).map(it=>`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元${it.orig===798?'(双人)':''}${it.at?('【'+it.at+'】'):''}`).join('、')||`${r.itemCount||1}钟`;
+    const pay=(r.pay&&r.pay.length)?r.pay.join('/'):'--';
+    if(r.isReturn){
+      return `<div style="padding:4px 0;border-bottom:1px dashed #e5e5ea;color:#c62828">
+        <div style="font-weight:600">↩️ 退钟 · ${r.room}·${techs}</div>
+        <div style="color:#c62828">${r.startTime||'--'}上→${r.endTime||'--'}下(无提成)</div>
+        <div style="color:#888">原因:${r.retReason||'--'}</div>
+      </div>`;
+    }
+    if(r.isWalk){
+      const wtt=(r.walkTechs&&r.walkTechs.length)?r.walkTechs.join('、'):(techs||'');
+      return `<div style="padding:4px 0;border-bottom:1px dashed #e5e5ea;color:#9c27b0">
+        <div style="font-weight:600">🚶 走客 · ${r.room}${wtt?('·试钟:'+wtt):''}</div>
+        <div style="color:#9c27b0">${r.startTime||'--'}(未消费)</div>
+        <div style="color:#888">来源:${r.source||'--'}|原因:${r.walkReason||'--'}</div>
+      </div>`;
+    }
+    const note=r.note?`<div style="color:#888">备注:${r.note}</div>`:'';
+    const editTxt=r.editRemark?`<div style="color:#6a1b9a">✎ 改钟:${r.editRemark}</div>`:'';
+    const namedTxt=(r.named&&r.namedTech)?`<div style="color:#e65100">⭐ 点钟:${r.namedTech} +20</div>`:'';
+    return `<div style="padding:4px 0;border-bottom:1px dashed #e5e5ea">
+      <div style="font-weight:600">${r.room}·${techs}</div>
+      <div style="color:#555">${r.startTime||'--'}上→${r.endTime||'--'}下 | ${items}</div>
+      <div style="color:#555">结账:${pay} | 应收¥${r.origTotal||0}→实收¥${r.total||0}</div>${namedTxt}${editTxt}${note}
+    </div>`;
+  }).join('');
+  return h;
+}
+
+function renderSource(records){
+  records=records||[];
+  const today=currentBizKey();
+  const srcMap={};
+  records.filter(r=>r.date===today && !(r.isReturn||r.isWalk)).forEach(r=>{
+    const s=r.source||'未选';
+    if(!srcMap[s]) srcMap[s]={c:0,t:0};
+    srcMap[s].c+=1; srcMap[s].t+=(r.total||0);
+  });
+  const names=Object.keys(srcMap);
+  document.getElementById('sourceStats').innerHTML=names.length
+    ? names.map(n=>`<div class="ts"><span class="tn">${n}</span><span>${srcMap[n].c}单</span><span style="color:#007aff;font-weight:700">¥${srcMap[n].t}</span></div>`).join('')
+    : '<div style="text-align:center;color:#aaa;padding:10px">暂无</div>';
+}
+
+function renderRank(records){
+  records=records||[];
+  // 最近10个营业日
+  const days=[]; const now=new Date();
+  for(let i=9;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i); const k=bizKeyFromDate(d); if(k>=CUTOFF) days.push(k); }
+  const daySet=new Set(days);
+  const todays=records.filter(r=>daySet.has(r.date) && !(r.isReturn||r.isWalk));
+  // 项目排行
+  const projCount={};
+  todays.forEach(r=>{ (r.items||[]).forEach(it=>{ projCount[it.orig]=(projCount[it.orig]||0)+1; }); });
+  const projArr=Object.keys(projCount).map(p=>({p:parseInt(p),c:projCount[p]})).sort((a,b)=>b.c-a.c);
+  // 技师排行
+  const techMap={};
+  todays.forEach(r=>{
+    if(r.mergeRule===true){
+      const techs=(r.techs&&r.techs.length)?r.techs:[r.tech];
+      const tc=(r.commission||0)-(r.named?20:0);
+      const per=techs.length?Math.round(tc/techs.length):tc;
+      techs.forEach(tn=>{ if(!techMap[tn])techMap[tn]={c:0,t:0}; techMap[tn].c+=1; techMap[tn].t+=per; });
+      if(r.named&&r.namedTech){ if(!techMap[r.namedTech])techMap[r.namedTech]={c:0,t:0}; techMap[r.namedTech].t+=20; }
+      return;
+    }
+    (r.items||[]).forEach(it=>{
+      const techs=it.techs&&it.techs.length?it.techs:(r.techs||[r.tech]);
+      const c=(it.orig===798)?(190*techs.length):calcItemComm(it, r);
+      const per=techs.length?Math.round(c/techs.length):c;
+      techs.forEach(tn=>{ if(!techMap[tn])techMap[tn]={c:0,t:0}; techMap[tn].c+=1; techMap[tn].t+=per; });
+    });
+    if(r.named&&r.namedTech){ if(!techMap[r.namedTech])techMap[r.namedTech]={c:0,t:0}; techMap[r.namedTech].t+=20; }
+  });
+  const techArr=Object.keys(techMap).map(n=>({n,c:techMap[n].c,t:techMap[n].t})).sort((a,b)=>b.t-a.t);
+  // 渲染
+  let ph=projArr.length?projArr.map((x,i)=>`<div class="ts" style="border:none"><span>${i+1}. ${x.p}元${x.p===798?'(双人)':''}</span><span>${x.c}次</span></div>`).join(''):'<div style="color:#aaa;text-align:center;padding:8px">近10天暂无项目</div>';
+  let th=techArr.length?techArr.map((x,i)=>`<div class="ts" style="border:none"><span>${i+1}. ${x.n}</span><span>${x.c}钟</span><span class="tj">¥${x.t}</span></div>`).join(''):'<div style="color:#aaa;text-align:center;padding:8px">近10天暂无技师</div>';
+  let html=`<div style="font-size:14px;font-weight:800;color:#2d3561;margin-bottom:8px">📈 项目排行</div>${ph}<div style="font-size:14px;font-weight:800;color:#2d3561;margin:14px 0 8px">🏆 技师排行</div>${th}`;
+  document.getElementById('rankList').innerHTML = html;
+}
+
+async function tick(){
+  try{
+    const st = await readNode('');
+    if(!st || !st.rooms){ return; }
+    const recs=(st.records||[]).filter(r=>String(r.date||'')>=CUTOFF);
+    viewRecords=recs;
+    renderRooms(st.rooms);
+    renderStats(recs);
+    renderRoomTimes(recs, st.rooms);
+    renderWeek(recs);
+    renderSource(recs);
+    renderRank(recs);
+    document.getElementById('statDot').className='live'; document.getElementById('statDot').textContent='● 实时';
+    document.getElementById('updInfo').textContent='更新于 '+fmtClock();
+  }catch(e){
+    document.getElementById('statDot').className='off'; document.getElementById('statDot').textContent='● 离线';
+    document.getElementById('updInfo').textContent='连接失败:'+e.message;
+  }
+}
+function loop(){ tick(); setInterval(tick,4000); }
+document.getElementById('clock').textContent=fmtClock();
+setInterval(()=>{ document.getElementById('clock').textContent=fmtClock(); },1000);
+loop();
+</script>
+</body>
+</html>
