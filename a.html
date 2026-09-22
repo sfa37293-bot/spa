@@ -94,6 +94,16 @@ const PAIR_PRICE = 798;
 const PAIR_COMMISSION_PER = 190;
 // 旧算法:固定提成表(用于2026-08-30 11:00之前的记录)
 const OLD_COMM={128:60,158:75,198:90,298:140,398:190,498:240,598:290};
+// 常用价目表(录入界面快捷按钮)
+const PROJS=[128,158,268,368,468,568];
+// 新价目表指定提成(2026-09-22 店家定):命中用表值,其余回退 comm50
+const PROJ_COMM={128:60,158:75,268:130,368:180,468:230,568:280};
+const COMM=PROJ_COMM;
+function commOf(price){ return PROJ_COMM[price]!==undefined ? PROJ_COMM[price] : comm50(price); }
+// 生成价目快捷按钮(prefix 区分上钟/加钟,避免id冲突)
+function projBtns(prefix,ri,handler){
+  return PROJS.map(p=>`<div class="proj" id="${prefix}${ri}_${p}" onclick="${handler}(${ri},${p})">${p}元<span class="price">提成${COMM[p]}元</span></div>`).join('');
+}
 // 项目是否为双人
 function isPair(p){ return p===798; }
 // 提成 = 价格×50%,四舍五入向上到5的倍数(尾数1-4→5,6-9→下一0,0/5不变)
@@ -111,12 +121,12 @@ function isNewRule(r){ return !!(r && r.newRule===true); }
 function calcItemComm(it, r){
   var price = (typeof it==='object') ? (it.orig||it.price) : it;
   if(price===798) return PAIR_COMMISSION_PER*2;
-  return isNewRule(r) ? comm50(price) : (OLD_COMM[price]||comm50(price));
+  return isNewRule(r) ? commOf(price) : (OLD_COMM[price]||comm50(price));
 }
 // 名技师展示提成
-function perTechComm(price){ return price===798 ? PAIR_COMMISSION_PER : comm50(price); }
+function perTechComm(price){ return price===798 ? PAIR_COMMISSION_PER : commOf(price); }
 // 整单换算(带 newRule):默认新算法
-function itemTotalComm(price){ return isPair(price) ? (PAIR_COMMISSION_PER*2) : comm50(price); }
+function itemTotalComm(price){ return isPair(price) ? (PAIR_COMMISSION_PER*2) : commOf(price); }
 // 计算房间整单提成(2026-08-31起):
 //   仅一个技师 → 整单合并算一次:非798项目金额相加按×50%上取整;798另保留(每人190)
 //   多个技师   → 各技师按自己负责的项目分开算提成(整单总提成=各技师之和)
@@ -145,14 +155,14 @@ function calcRoomCommission(items){
       // 多技师:各自独立算
       var each2;
       if(price===798){ each2=PAIR_COMMISSION_PER; itemComm.push(PAIR_COMMISSION_PER*ts.length); } // 798双人每人190
-      else { each2=Math.round(comm50(price)/ts.length); itemComm.push(comm50(price)); }
+      else { each2=Math.round(commOf(price)/ts.length); itemComm.push(commOf(price)); }
       ts.forEach(function(t){ perTech[t]=(perTech[t]||0)+each2; });
     }
   });
   // 单技师合并部分最后一次性取整
   if(!multi){
     var mergeSum=perTech.__merge||0;
-    var mergeComm=(mergeSum>0?comm50(mergeSum):0);
+    var mergeComm=(mergeSum>0?commOf(mergeSum):0);
     var t0=techNames[0];
     perTech={}; perTech[t0]=mergeComm;
     // 把798的提成也并入该项目对应技师(单技师时798通常也是同一人,简单并入)
@@ -202,7 +212,7 @@ function renderRooms(){
       const selHtml=DB.techs.map(t=>`<option>${t}</option>`).join('');
       b.innerHTML=`
         <div class="field"><label>选择技师(双人798需选2人)</label><div class="tags" id="tk${ri}">${DB.techs.map((t,i)=>`<span class="tag2" data-i="${i}" onclick="toggleTechPick(${ri},${i})">${t}</span>`).join('')}</div><div class="hint" id="th${ri}"></div></div>
-        <div class="field"><label>项目价格(手动输入,双人798请点按钮)</label><div class="projects" id="pw${ri}"><div class="proj" style="grid-column:1/-1;border:2px solid #e2e7ee" onclick="pickPair(${ri})">798元(双人,每名190提成)</div></div><div style="display:flex;gap:8px;margin-top:8px"><input type="number" inputmode="numeric" id="pwi${ri}" placeholder="输入项目价格 ¥" style="flex:1;padding:12px 14px;border:1px solid #e2e7ee;border-radius:12px;font-size:15px;background:#f8fafc" oninput="manualPriceInput(${ri})"></div><div class="hint" id="ph${ri}"></div></div>
+        <div class="field"><label>项目价格(点选价目)</label><div class="projects" id="pw${ri}">${projBtns('pj',ri,'pickProj')}<div class="proj" id="pj${ri}_798" style="grid-column:1/-1;border:2px solid #e2e7ee" onclick="pickPair(${ri})">798元<span class="price">双人·每名190提成</span></div></div><div class="hint" id="ph${ri}"></div></div>
         <div class="field"><label>客户来源(单选)</label><div class="projects" id="src${ri}"><div class="proj">美团</div><div class="proj">老客</div><div class="proj">散客</div></div></div>
         <div class="field"><label>点钟(指名技师+20提成)</label><div style="display:flex;align-items:center;justify-content:space-between;background:#fafafa;border:1px solid #ddd;border-radius:10px;padding:11px 14px"><span style="font-size:14px">是否点钟</span><span class="tag2" id="nm${ri}" onclick="toggleNamed(${ri})" style="padding:8px 22px">否</span></div><div class="hint" id="nh${ri}"></div></div>
         <div class="btn-row"><button class="btn p" onclick="clockIn(${ri})">🔔 上钟</button></div>`;
@@ -220,7 +230,7 @@ function renderRooms(){
         </div>
         <div class="sec">加钟(可选择技师)</div>
         <div class="field"><label>加钟技师(双人798需选2人)</label><div class="tags" id="ck${ri}">${DB.techs.map((t,i)=>`<span class="tag2" data-i="${i}" onclick="toggleClockTech(${ri},${i})">${t}</span>`).join('')}</div></div>
-        <div class="field"><label>加钟项目价格(手动输入,双人798点按钮)</label><div class="projects" id="pw${ri}" style="margin-bottom:8px"><div class="proj" style="grid-column:1/-1;border:2px solid #e2e7ee" onclick="pickClockPair(${ri})">798元(双人,每名190提成)</div></div><div style="display:flex;gap:8px"><input type="number" inputmode="numeric" id="ckp${ri}" placeholder="输入加钟价格 ¥" style="flex:1;padding:12px 14px;border:1px solid #e2e7ee;border-radius:12px;font-size:15px;background:#f8fafc" oninput="clockPriceInput(${ri})"></div><div class="hint" id="ch${ri}"></div></div>
+        <div class="field"><label>加钟项目价格(点选价目)</label><div class="projects" id="pw${ri}" style="margin-bottom:8px">${projBtns('ckj',ri,'pickClockProj')}<div class="proj" id="ckj${ri}_798" style="grid-column:1/-1;border:2px solid #e2e7ee" onclick="pickClockPair(${ri})">798元<span class="price">双人·每名190提成</span></div></div><div class="hint" id="ch${ri}"></div></div>
         <div class="btn-row"><button class="btn a" onclick="addClock(${ri})">加钟</button><button class="btn" style="background:#6a1b9a" onclick="openEditItem(${ri})">✎ 改钟</button><button class="btn r" onclick="openSettle(${ri})">下钟</button></div>
         <div class="btn-row"><button class="btn gr" onclick="openReturn(${ri})">↩️ 退钟</button></div>`;
       const pw=b.querySelector('#pw'+ri);
@@ -235,26 +245,26 @@ function toggleTechPick(ri,i){
   el.classList.toggle('on');
   updateTechHint(ri);
 }
-// 手动输入价格存到房间的 pw 状态
+// 价目按钮选中态
 let manualPrices={};
-function manualPriceInput(ri){
-  const inp=document.getElementById('pwi'+ri); if(!inp)return;
-  const v=parseInt(inp.value)||0;
-  if(v>0){ manualPrices[ri]=v; } else { delete manualPrices[ri]; }
+function clearProjSel(ri){ const pw=document.getElementById('pw'+ri); if(pw) pw.querySelectorAll('.proj').forEach(x=>x.classList.remove('sel')); }
+// 点价目快捷按钮:选中该价格
+function pickProj(ri,price){
+  clearProjSel(ri);
+  const el=document.getElementById('pj'+ri+'_'+price); if(el) el.classList.add('sel');
+  manualPrices[ri]=price;
   updateTechHint(ri);
 }
 // 点双人按钮:填入798
 function pickPair(ri){
-  const inp=document.getElementById('pwi'+ri); if(inp) inp.value=798;
+  clearProjSel(ri);
+  const el=document.getElementById('pj'+ri+'_798'); if(el) el.classList.add('sel');
   manualPrices[ri]=798;
   updateTechHint(ri);
 }
-// 取某房间当前选中的价格(手动输入或双人)
+// 取某房间当前选中的价格(价目按钮)
 function getSelPrice(ri){
-  if(manualPrices[ri]) return manualPrices[ri];
-  const inp=document.getElementById('pwi'+ri);
-  if(inp){ const v=parseInt(inp.value)||0; if(v>0) return v; }
-  return 0;
+  return manualPrices[ri]||0;
 }
 function setSelPrice(ri){
   const v=getSelPrice(ri);
@@ -305,7 +315,7 @@ async function clockIn(ri){
   const manual=manualPrices[ri]||0;
   const selPair = (rawSel==='pair' || manual===798);
   const selPrice = selPair ? 798 : manual;
-  if(!selPrice){toast('请先输入项目价格或选双人');return;}
+  if(!selPrice){toast('请先点选项目价目');return;}
   const picked=getPickedTechs(ri);
   if(selPair && picked.length !== 2){ toast('⚠️ 双人项目需选2名技师'); return; }
   if(!selPair && picked.length !== 1){ toast('⚠️ 请选择1名技师'); return; }
@@ -329,37 +339,37 @@ function getClockTechs(ri){
   const h=document.getElementById('ck'+ri); if(!h)return[];
   const out=[]; h.querySelectorAll('.tag2.on').forEach(el=>out.push(el.textContent)); return out;
 }
-// 加钟手动输入价格
+// 加钟价目按钮选中态
 let clockPrices={};
-function clockPriceInput(ri){
-  const inp=document.getElementById('ckp'+ri); if(!inp)return;
-  const v=parseInt(inp.value)||0;
-  if(v>0){ clockPrices[ri]=v; } else { delete clockPrices[ri]; }
+function clearClockSel(ri){ const pw=document.getElementById('pw'+ri); if(pw) pw.querySelectorAll('.proj').forEach(x=>x.classList.remove('sel')); }
+// 加钟:点价目快捷按钮
+function pickClockProj(ri,price){
+  clearClockSel(ri);
+  const el=document.getElementById('ckj'+ri+'_'+price); if(el) el.classList.add('sel');
+  clockPrices[ri]=price;
   updateClockHint(ri);
 }
 function pickClockPair(ri){
-  const inp=document.getElementById('ckp'+ri); if(inp) inp.value=798;
+  clearClockSel(ri);
+  const el=document.getElementById('ckj'+ri+'_798'); if(el) el.classList.add('sel');
   clockPrices[ri]=798;
   updateClockHint(ri);
 }
 function getClockPrice(ri){
-  if(clockPrices[ri]) return clockPrices[ri];
-  const inp=document.getElementById('ckp'+ri);
-  if(inp){ const v=parseInt(inp.value)||0; if(v>0) return v; }
-  return 0;
+  return clockPrices[ri]||0;
 }
 function updateClockHint(ri){
   const h=document.getElementById('ch'+ri); if(!h)return;
   const picked=getClockTechs(ri);
   const price=getClockPrice(ri);
   const pair=(price===798);
-  if(price===0){ h.textContent='请输入加钟价格'; return; }
+  if(price===0){ h.textContent='请点选加钟价目'; return; }
   if(pair){ h.textContent = picked.length===2 ? '✅ 已选2人' : (picked.length<2?'⚠️ 双人项目需选2名技师':'⚠️ 双人项目只需2人'); }
   else { h.textContent = picked.length===1 ? '✅ 已选1人' : '请选择1名技师(双人项目选2人)'; }
 }
 async function addClock(ri){
   const selPrice=getClockPrice(ri);
-  if(!selPrice){toast('请先输入加钟价格');return;}
+  if(!selPrice){toast('请先点选加钟价目');return;}
   const picked=getClockTechs(ri);
   if(selPrice===798){
     if(picked.length!==2){ toast('⚠️ 双人项目需选2名技师'); return; }
