@@ -228,7 +228,10 @@ function renderRooms(){
     } else {
       const cur=room.cur;
       const techsStr=(cur.techs||[cur.tech]).join('、');
-      const items=(cur.items||[]).map((it,i)=>`<div class="line"><span class="k">项目${i+1}</span><span class="v">${it.price}元${(it.techs&&it.techs.length>1)?'·'+it.techs.join('/'):''} <span style="color:#007aff;font-size:12px;cursor:pointer" onclick="openEditItem(${ri},${i})">✎改</span></span></div>`).join('');
+      const items=(cur.items||[]).map((it,i)=>{ // 加钟时间显示(2026-09-23)
+        const atTxt=it.at?`<span style="color:#9c27b0;font-size:11px">【${i===0?'主':'加'} ${it.at}】</span>`:'';
+        return `<div class="line"><span class="k">项目${i+1}</span><span class="v">${atTxt}${it.price}元${(it.techs&&it.techs.length>1)?'·'+it.techs.join('/'):''} <span style="color:#007aff;font-size:12px;cursor:pointer" onclick="openEditItem(${ri},${i})">✎改</span></span></div>`;
+      }).join('');
       b.innerHTML=`
         <div class="cur-info">
           <div class="line"><span class="k">技师</span><span class="v">${techsStr}</span></div>
@@ -499,7 +502,8 @@ function openSettle(ri){
   const mergeComm=cc.total;
   const items=cur.items.map((it,i)=>{
     const who=(it.techs&&it.techs.length)?('|'+it.techs.join('/')):'';
-    return `<div class="settle-item"><div class="info"><div class="pname">项目 ${i+1} ${isPair(it.price)?'(双人)':''}(原价 ${it.price}${who})</div></div><input type="number" value="${it.price}" data-i="${i}"></div>`;
+    const atTxt=(it.at?('【'+(i===0?'主':'加')+' '+it.at+'】'):'');
+    return `<div class="settle-item"><div class="info"><div class="pname">项目 ${i+1} ${atTxt}${isPair(it.price)?'(双人)':''}(原价 ${it.price}${who})</div></div><input type="number" value="${it.price}" data-i="${i}"></div>`;
   }).join('');
   const origTotal=cur.items.reduce((s,it)=>s+it.price,0);
   const t=(cur.techs||[cur.tech]).join('、');
@@ -804,7 +808,7 @@ function openClocks(){
   const rooms=d.rooms||[];
   let rows='';
   rooms.forEach((r,idx)=>{
-    const items=(r.items||[]).map((it,ix)=>`<div style="color:#555">${ix+1}. ¥${it.orig}${it.fin!==it.orig?('→'+it.fin):''}${it.orig===798?'(双人)':''}${(it.techs&&it.techs.length)?'|'+it.techs.join('/'):''}</div>`).join('')||'<div style="color:#aaa">--</div>';
+    const items=(r.items||[]).map((it,ix)=>`<div style="color:#555">${ix+1}. ${it.at?('【'+(ix===0?'主':'加')+' '+it.at+'】'):''}￥${it.orig}${it.fin!==it.orig?('→'+it.fin):''}${it.orig===798?'(双人)':''}${(it.techs&&it.techs.length)?'|'+it.techs.join('/'):''}</div>`).join('')||'<div style="color:#aaa">--</div>';
     rows+=`<div style="padding:6px 0;border-bottom:1px dashed #e5e5ea;font-size:12px"><div style="font-weight:600">${idx+1}. ${r.room}·${(r.techs||[r.tech]).join('、')}(${r.startTime||''})</div>${items}</div>`;
   });
   const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=270;
@@ -821,7 +825,7 @@ function openExtras(){
     const extraIndices=arr.map((it,i)=>({it,i})).filter(x=>x.i>0); // 首钟之外都算加钟
     (extraIndices).forEach(x=>{
       const it=x.it; const idx=x.i;
-      rows+=`<div style="padding:6px 0;border-bottom:1px dashed #e5e5ea;font-size:12px"><span style="font-weight:600">· ${r.room} ${(r.techs||[r.tech]).join('、')}</span><span style="color:#555">加钟¥${it.orig}${it.fin!==it.orig?('→'+it.fin):''}${(it.techs&&it.techs.length)?'|'+it.techs.join('/'):''}(${r.startTime||''})</span></div>`;
+      rows+=`<div style="padding:6px 0;border-bottom:1px dashed #e5e5ea;font-size:12px"><span style="font-weight:600">· ${r.room} ${(r.techs||[r.tech]).join('、')}</span><span style="color:#555">加钟¥${it.orig}${it.fin!==it.orig?('→'+it.fin):''}${(it.techs&&it.techs.length)?'|'+it.techs.join('/'):''}【${it.at||r.startTime||''}】</span></div>`;
     });
   });
   const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=270;
