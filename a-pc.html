@@ -168,7 +168,10 @@ function renderRooms(){
     } else {
       const cur=room.cur;
       const techsStr=(cur.techs||[cur.tech]).join('、');
-      const items=cur.items.map((it,i)=>`<div class="line"><span class="k">项目${i+1}</span><span class="v">${it.price}元${(it.techs&&it.techs.length>1)?'·'+it.techs.join('/'):''} <span style="color:#007aff;font-size:12px;cursor:pointer" onclick="openEditItem(${ri},${i})">✎改</span></span></div>`).join('');
+      const items=cur.items.map((it,i)=>{ // 加钟时间显示(2026-09-23)
+        const atTxt=it.at?`<span style="color:#9c27b0;font-size:11px">【${i===0?'主':'加'} ${it.at}】</span>`:'';
+        return `<div class="line"><span class="k">项目${i+1}</span><span class="v">${atTxt}${it.price}元${(it.techs&&it.techs.length>1)?'·'+it.techs.join('/'):''} <span style="color:#007aff;font-size:12px;cursor:pointer" onclick="openEditItem(${ri},${i})">✎改</span></span></div>`;
+      }).join('');
       b.innerHTML=`
         <div class="cur-info">
           <div class="line"><span class="k">技师</span><span class="v">${techsStr}</span></div>
@@ -262,7 +265,8 @@ async function addClock(ri){
   } else {
     if(picked.length!==1){ toast('⚠️ 请选择1名技师'); return; }
   }
-  DB.rooms[ri].cur.items.push({price:selPrice,techs:picked.slice()});
+  // 记录加钟时间(2026-09-23):加钟时写入 at,列表/明细显示
+  DB.rooms[ri].cur.items.push({price:selPrice,techs:picked.slice(),at:new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})});
   await save(); renderRooms(); toast('✅ 已加钟');
 }
 function openEditItem(ri,itemIdx){
@@ -367,18 +371,16 @@ async function confirmReturn(ri,mask){
 function openSettle(ri){
   const cur=DB.rooms[ri].cur;
   const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=250;
-  const mergeTotal=cur.items.reduce((s,it)=>s+(it.price===798?0:it.price),0);
-  const pairComm=cur.items.reduce((s,it)=>s+(it.price===798?190*2:0),0);
-  const mergeComm=(mergeTotal>0?itemTotalComm(mergeTotal):0)+pairComm;
   const items=cur.items.map((it,i)=>{
+    const c=itemTotalComm(it.price);
     const who=(it.techs&&it.techs.length)?('|'+it.techs.join('/')):'';
-    return `<div class="settle-item"><div class="info"><div class="pname">项目 ${i+1} ${isPair(it.price)?'(双人)':''}(原价 ${it.price}${who})</div></div><input type="number" value="${it.price}" data-i="${i}"></div>`;
+    const atTxt=(it.at?('【'+(i===0?'主':'加')+' '+it.at+'】'):'');
+    return `<div class="settle-item"><div class="info"><div class="pname">项目 ${i+1} ${atTxt}${isPair(it.price)?'(双人)':''}(原价 ${it.price},提成 ¥${c}${who})</div></div><input type="number" value="${it.price}" data-i="${i}"></div>`;
   }).join('');
   const origTotal=cur.items.reduce((s,it)=>s+it.price,0);
   const t=(cur.techs||[cur.tech]).join('、');
   mask.innerHTML=`<div class="modal"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
     <h3>下钟结算 · ${t}</h3><div style="color:#888;font-size:12px;margin-bottom:8px">修改项目价格可做折扣(提成按原价)</div>
-    <div style="font-size:13px;font-weight:700;background:#1d1d1f;color:#fff;border-radius:8px;padding:8px 12px;margin-bottom:8px">💰 整单提成(主+加合并一次算):¥${mergeComm} <span style="color:#bbb;font-size:11px;font-weight:500">(按整单 ¥${origTotal} ×50% 向上取整)</span></div>
     <div class="settle-list">${items}</div>
     <div style="font-size:13px;font-weight:700;margin:8px 0 6px">💳 组合结算(各方式分别填金额)</div>
     <div class="settle-item"><div class="info"><div class="pname">现金</div></div><input id="payCash" type="number" value="0"></div>
@@ -409,18 +411,15 @@ async function confirmOut(ri,mask){
   const scan=parseFloat(mask.querySelector('#payScan').value)||0;
   const mt=parseFloat(mask.querySelector('#payMT').value)||0;
   if(Math.abs((cash+scan+mt)-total)>0.01){ toast('⚠️ 组合金额合计需等于 '+total+'元'); return; }
-  // 整单合并提成:主钟+所有加钟金额相加,按总价×50%向上取整到5的倍数,算一次(798双人另保留)
-  let mergeTotal=0, pairComm=0;
-  cur.items.forEach(it=>{ if(it.price===798){ pairComm+=190*2; } else { mergeTotal+=it.price; } });
-  let commission = (mergeTotal>0 ? itemTotalComm(mergeTotal) : 0) + pairComm;
+  let commission=0; cur.items.forEach(it=>{commission+=itemTotalComm(it.price);});
   const named=!!cur.named; const namedTech=cur.namedTech||'';
   if(named) commission += 20;
   let origTotal=0; cur.items.forEach(it=>{origTotal+=it.price;});
   const endNow=new Date();
   const payArr=[]; if(cash>0)payArr.push('现金¥'+cash); if(scan>0)payArr.push('扫码¥'+scan); if(mt>0)payArr.push('美团¥'+mt);
-  const itemsDetail=cur.items.map((it,i)=>({orig:it.price, fin:fin[i]||it.price, techs:it.techs||[]}));
+  const itemsDetail=cur.items.map((it,i)=>({orig:it.price, fin:fin[i]||it.price, techs:it.techs||[], at:it.at||''}));
   const note=(mask.querySelector('#settleNote')||{}).value||'';
-  DB.records.push({date:currentBizKey(),time:new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}),room:DB.rooms[ri].name,techs:(cur.techs||[cur.tech]),total:total,commission:commission,origTotal:origTotal,mergeTotal:mergeTotal,mergeRule:true,itemCount:cur.items.length,extraCount:Math.max(0,cur.items.length-1),startTime:cur.startTime||'',endTime:endNow.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),pay:payArr,items:itemsDetail,note:note,named:named,namedTech:namedTech,source:cur.source||'',editRemark:cur.editRemark||''});
+  DB.records.push({date:currentBizKey(),time:new Date().toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}),room:DB.rooms[ri].name,techs:(cur.techs||[cur.tech]),total:total,commission:commission,origTotal:origTotal,itemCount:cur.items.length,extraCount:Math.max(0,cur.items.length-1),startTime:cur.startTime||'',endTime:endNow.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),pay:payArr,items:itemsDetail,note:note,named:named,namedTech:namedTech,source:cur.source||'',editRemark:cur.editRemark||''});
   DB.rooms[ri].status='free'; DB.rooms[ri].cur=null;
   mask.remove(); await save(); renderRooms(); toast('✅ 已结算 共 ¥'+total);
 }
@@ -458,7 +457,8 @@ function renderRoomTimes(){
         if(it.orig===798){ commTxt=techs.map(t=>`${t}¥190`).join(' / '); }
         else { commTxt=techs.map((t,ti)=>ti===0?`${t}￥${({198:90,298:140,398:190,498:240,598:290}[it.orig]||0)}`:`${t}`).join(' / '); }
         const priceTxt=`${it.orig}${it.fin!==it.orig?('→'+it.fin):''}元${it.orig===798?'(双人)':''}`;
-        return `<div style="color:#333">${ix+1}. ${priceTxt}|${techs.join('、')}|提成 ${commTxt}</div>`;
+        const atTxt2=it.at?`<span style="color:#9c27b0">【${ix===0?'主':'加'} ${it.at}】</span>`:'';
+        return `<div style="color:#333">${ix+1}. ${atTxt2}${priceTxt}|${techs.join('、')}|提成 ${commTxt}</div>`;
       }).join('')||`1. ${r.itemCount||1}钟`;
       const pay=(r.pay&&r.pay.length)?r.pay.join('/'):'--';
       const note=r.note?`<div style="color:#888">备注:${r.note}</div>`:'';
@@ -542,7 +542,7 @@ function openClocks(){
   const rooms=d.rooms||[];
   let rows='';
   rooms.forEach((r,idx)=>{
-    const items=(r.items||[]).map((it,ix)=>`<div style="color:#555">${ix+1}. ¥${it.orig}${it.fin!==it.orig?('→'+it.fin):''}${it.orig===798?'(双人)':''}${(it.techs&&it.techs.length)?'|'+it.techs.join('/'):''}</div>`).join('')||'<div style="color:#aaa">--</div>';
+    const items=(r.items||[]).map((it,ix)=>`<div style="color:#555">${ix+1}. ${it.at?('【'+(ix===0?'主':'加')+' '+it.at+'】'):''}¥${it.orig}${it.fin!==it.orig?('→'+it.fin):''}${it.orig===798?'(双人)':''}${(it.techs&&it.techs.length)?'|'+it.techs.join('/'):''}</div>`).join('')||'<div style="color:#aaa">--</div>';
     rows+=`<div style="padding:6px 0;border-bottom:1px dashed #e5e5ea;font-size:12px"><div style="font-weight:600">${idx+1}. ${r.room}·${(r.techs||[r.tech]).join('、')}(${r.startTime||''})</div>${items}</div>`;
   });
   const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=270;
@@ -559,7 +559,7 @@ function openExtras(){
     const extraIndices=arr.map((it,i)=>({it,i})).filter(x=>x.i>0); // 首钟之外都算加钟
     (extraIndices).forEach(x=>{
       const it=x.it; const idx=x.i;
-      rows+=`<div style="padding:6px 0;border-bottom:1px dashed #e5e5ea;font-size:12px"><span style="font-weight:600">· ${r.room} ${(r.techs||[r.tech]).join('、')}</span><span style="color:#555">加钟¥${it.orig}${it.fin!==it.orig?('→'+it.fin):''}${(it.techs&&it.techs.length)?'|'+it.techs.join('/'):''}(${r.startTime||''})</span></div>`;
+      rows+=`<div style="padding:6px 0;border-bottom:1px dashed #e5e5ea;font-size:12px"><span style="font-weight:600">· ${r.room} ${(r.techs||[r.tech]).join('、')}</span><span style="color:#555">加钟¥${it.orig}${it.fin!==it.orig?('→'+it.fin):''}${(it.techs&&it.techs.length)?'|'+it.techs.join('/'):''}【${it.at||r.startTime||''}】</span></div>`;
     });
   });
   const mask=document.createElement('div'); mask.className='modal-mask show'; mask.style.zIndex=270;
