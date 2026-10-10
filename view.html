@@ -43,9 +43,16 @@
   .btn-row{display:flex;gap:10px;margin-top:14px}
   .btn{flex:1;padding:13px;border:none;border-radius:12px;font-size:15px;font-weight:700;color:#fff;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.12)}
   .btn.gr{background:linear-gradient(135deg,#9aa3b5,#7c8698)}
+  #notifyBar{position:fixed;top:0;left:0;right:0;z-index:900;display:none;text-align:center;color:#fff;font-weight:800;font-size:16px;padding:12px 14px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+  #notifyBar.nb{animation:nbFlash 3.3s ease forwards}
+  @keyframes nbFlash{0%{opacity:0;transform:translateY(-18px)}8%{opacity:1;transform:translateY(0)}75%{opacity:1}100%{opacity:0;transform:translateY(-8px)}}
+  #notifyBtn{position:fixed;right:14px;bottom:14px;z-index:950;background:#2d3561;color:#fff;font-size:13px;font-weight:700;padding:10px 14px;border-radius:24px;box-shadow:0 4px 14px rgba(0,0,0,.28);cursor:pointer;user-select:none}
+  #notifyBtn.on{background:linear-gradient(135deg,#34c759,#28a745)}
 </style>
 </head>
 <body>
+<div id="notifyBar"></div>
+<div id="notifyBtn" onclick="toggleNotify()">🔔 开启提醒</div>
 <div class="top">
   <div>
     <h1>SPA 营业看板</h1>
@@ -601,11 +608,88 @@ function renderRank(records){
   document.getElementById('rankList').innerHTML = html;
 }
 
+/* ===== 上钟 / 加钟 / 下钟 提醒与语音播报 ===== */
+var _notifyOn = false;
+try{ _notifyOn = localStorage.getItem('spa_notify')==='1'; }catch(e){}
+var _ac = null;
+var _lastState = null;
+
+function playTones(seq){
+  try{
+    if(!_ac) _ac = new (window.AudioContext||window.webkitAudioContext)();
+    if(_ac.state==='suspended') _ac.resume();
+    var t=_ac.currentTime;
+    for(var i=0;i<seq.length;i+=2){
+      var o=_ac.createOscillator(), g=_ac.createGain();
+      o.type='sine'; o.frequency.value=seq[i];
+      o.connect(g); g.connect(_ac.destination);
+      g.gain.setValueAtTime(0.0001,t);
+      g.gain.exponentialRampToValueAtTime(0.3,t+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+seq[i+1]);
+      o.start(t); o.stop(t+seq[i+1]+0.02);
+      t += seq[i+1]+0.06;
+    }
+  }catch(e){}
+}
+function speak(txt){
+  try{
+    if(!('speechSynthesis' in window)) return;
+    var u=new SpeechSynthesisUtterance(txt);
+    u.lang='zh-CN'; u.rate=1.05;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+function banner(txt,color){
+  var el=document.getElementById('notifyBar');
+  if(!el) return;
+  el.textContent=txt; el.style.background=color; el.style.display='block';
+  el.classList.remove('nb'); void el.offsetWidth; el.classList.add('nb');
+  clearTimeout(el._t); el._t=setTimeout(function(){ el.style.display='none'; },3300);
+}
+function fire(room,act,techs){
+  if(!_notifyOn) return;
+  var msg=room+'，'+act+(techs?('，'+techs):'');
+  var col = act==='上钟' ? 'linear-gradient(135deg,#34c759,#1c7b3f)' : act==='加钟' ? 'linear-gradient(135deg,#a55eea,#7b3fa0)' : 'linear-gradient(135deg,#ff5a5a,#c62828)';
+  banner((act==='上钟'?'🟢':act==='加钟'?'🟣':'🔴')+' '+msg, col);
+  playTones(act==='上钟'?[880,0.16,1175,0.16] : act==='加钟'?[1046,0.14,1318,0.14] : [523,0.18,392,0.22]);
+  speak(msg);
+}
+function detectEvents(rooms){
+  var cur={};
+  (rooms||[]).forEach(function(r){
+    var busy = r && r.status==='busy' && r.cur;
+    cur[r.name] = busy ? {busy:true, count:(r.cur.items||[]).length, techs:(r.cur.techs&&r.cur.techs.length)?r.cur.techs.join('、'):(r.cur.tech||'')} : {busy:false,count:0,techs:''};
+  });
+  if(_lastState){
+    Object.keys(cur).forEach(function(nm){
+      var a=_lastState[nm]||{busy:false,count:0,techs:''};
+      var b=cur[nm];
+      if(!a.busy && b.busy){ fire(nm,'上钟',b.techs); }
+      else if(a.busy && b.busy && b.count>a.count){ fire(nm,'加钟',b.techs); }
+      else if(a.busy && !b.busy){ fire(nm,'下钟',a.techs); }
+    });
+  }
+  _lastState = cur;
+}
+function toggleNotify(){
+  _notifyOn = !_notifyOn;
+  try{ localStorage.setItem('spa_notify', _notifyOn?'1':'0'); }catch(e){}
+  var b=document.getElementById('notifyBtn');
+  if(_notifyOn){
+    b.textContent='🔔 提醒已开'; b.classList.add('on'); _lastState=null;
+    playTones([880,0.14,1175,0.14]); speak('提醒已开启');
+  }else{
+    b.textContent='🔕 提醒已关'; b.classList.remove('on');
+  }
+}
+(async function(){ if(_notifyOn){ var b=document.getElementById('notifyBtn'); if(b){ b.textContent='🔔 提醒已开'; b.classList.add('on'); } } })();
+
 async function tick(){
   try{
     const st = await readNode('');
     if(!st || !st.rooms){ return; }
     viewRecords=st.records||[];
+    detectEvents(st.rooms);
     renderRooms(st.rooms);
     renderStats(st.records);
     renderRoomTimes(st.records, st.rooms);
