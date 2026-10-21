@@ -493,7 +493,8 @@ function renderWeek(records){
   days.forEach(key=>{
     const todaysAll=records.filter(r=>r.date===key);
     const todays=todaysAll.filter(r=>!(r.isReturn||r.isWalk));
-    const retCount=todaysAll.length-todays.length;
+    const retCount=todaysAll.filter(r=>r.isReturn).length;
+    const walkCount=todaysAll.filter(r=>r.isWalk).length;
     const total=todays.reduce((s,r)=>s+(r.itemCount||1),0);
     const should=todays.reduce((s,r)=>s+(r.origTotal||r.total||0),0);
     const get=todays.reduce((s,r)=>s+(r.total||0),0);
@@ -503,7 +504,7 @@ function renderWeek(records){
     html+=`
       <div class="ts" style="cursor:pointer;${isToday?'background:#e8f0fe':''}" onclick="toggleDay('${safeKey}')">
         <span class="tn">${key.slice(5)}${isToday?'(今)':''}</span>
-        <span>${todays.length}单·${total}钟${retCount?'·退'+retCount:''}</span>
+        <span>${todays.length}单·${total}钟${retCount?'·退'+retCount:''}${walkCount?'·走'+walkCount:''}</span>
         <span style="font-size:11px;color:#e65100;font-weight:700">应¥${should}</span>
         <span style="color:#2e7d32;font-weight:700">实¥${get}</span>
       </div>
