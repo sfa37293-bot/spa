@@ -86,7 +86,7 @@
     <div id="rankList"></div>
   </div>
   <div class="panel">
-    <div class="gt">📅 近7天每日营业</div>
+    <div class="gt">📅 近10天每日营业</div>
     <div id="weekList"></div>
   </div>
   <div class="upd" id="updInfo">连接中...</div>
@@ -100,6 +100,8 @@
 <script>
 const DBURL = 'https://spa123-da150-default-rtdb.asia-southeast1.firebasedatabase.app/';
 function dc(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+// 营业日 key(YYYY-MM-DD) -> 周几。用本地构造避免时区偏移
+function wkName(key){ const p=String(key).split('-'); const d=new Date(+p[0], +p[1]-1, +p[2]); return '周'+'日一二三四五六'[d.getDay()]; }
 function pad2(n){return String(n).padStart(2,'0');}
 // 提成 = 价格×50%,四舍五入向上到5的倍数(尾数1-4→5,6-9→下一0,0/5不变)
 function comm50(price){
@@ -488,7 +490,7 @@ function renderWeek(records){
   records=records||[];
   const now=new Date();
   const days=[];
-  for(let i=6;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i); days.push(bizKeyFromDate(d)); }
+  for(let i=9;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i); days.push(bizKeyFromDate(d)); }
   let html='';
   days.forEach(key=>{
     const todaysAll=records.filter(r=>r.date===key);
@@ -503,7 +505,7 @@ function renderWeek(records){
     const safeKey=key.replace(/-/g,'');
     html+=`
       <div class="ts" style="cursor:pointer;${isToday?'background:#e8f0fe':''}" onclick="toggleDay('${safeKey}')">
-        <span class="tn">${key.slice(5)}${isToday?'(今)':''}</span>
+        <span class="tn">${key.slice(5)} <span style="font-size:11px;color:#8792a6">${wkName(key)}</span>${isToday?'(今)':''}</span>
         <span>${todays.length}单·${total}钟${retCount?'·退'+retCount:''}${walkCount?'·走'+walkCount:''}</span>
         <span style="font-size:11px;color:#e65100;font-weight:700">应¥${should}</span>
         <span style="color:#2e7d32;font-weight:700">实¥${get}</span>
