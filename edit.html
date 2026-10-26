@@ -523,11 +523,30 @@ function openSettle(ri){
     <div class="btn-row"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">取消</button><button class="btn g" onclick="confirmOut(${ri},this.closest('.modal-mask'))">确认下钟</button></div></div>`;
   mask.origTotal=origTotal;
   function recalc(){
-    const total=parseFloat(mask.querySelector('#payTotal').value)||0;
-    const sum=(parseFloat(mask.querySelector('#payCash').value)||0)+(parseFloat(mask.querySelector('#payScan').value)||0)+(parseFloat(mask.querySelector('#payMT').value)||0);
-    mask.querySelector('#payErr').style.display=(Math.abs(sum-total)>0.01)?'block':'none';
+    // 项目金额合计(改价做折扣后，结算总额必须跟着变)
+    let itemsTotal=0;
+    mask.querySelectorAll('input[data-i]').forEach(x=>{ itemsTotal+=(parseFloat(x.value)||0); });
+    const pt=mask.querySelector('#payTotal');
+    // 用户没手动改过总额时，自动跟随项目金额(修:打折后总额不更新→一直提示不一致→下不了钟)
+    if(!mask._totalManual){ pt.value=itemsTotal; }
+    const total=parseFloat(pt.value)||0;
+    const cash=parseFloat(mask.querySelector('#payCash').value)||0;
+    const scan=parseFloat(mask.querySelector('#payScan').value)||0;
+    const mt=parseFloat(mask.querySelector('#payMT').value)||0;
+    const sum=cash+scan+mt;
+    const err=mask.querySelector('#payErr');
+    if(Math.abs(sum-total)>0.01){
+      err.textContent = (sum===0 && total>0)
+        ? ('请填写收款金额（现金/扫码/美团任填一项，合计需 '+total+' 元）')
+        : ('三项金额合计 '+sum+' 元，与结算总额 '+total+' 元不一致');
+      err.style.display='block';
+    } else { err.style.display='none'; }
   }
-  mask.querySelector('#payTotal').addEventListener('input',recalc);
+  mask._totalManual=false;
+  mask.querySelector('#payTotal').addEventListener('input',function(){ mask._totalManual=true; recalc(); });
+  // 关键: 改项目价格(打折)要重算，否则结算总额不跟随 → 永远提示不一致 → 下不了钟
+  const sl=mask.querySelector('.settle-list');
+  if(sl) sl.addEventListener('input',recalc);
   mask.querySelector('#payCash').addEventListener('input',recalc);
   mask.querySelector('#payScan').addEventListener('input',recalc);
   mask.querySelector('#payMT').addEventListener('input',recalc);
