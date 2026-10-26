@@ -53,7 +53,9 @@
   .settle-item{display:flex;align-items:center;gap:8px;padding:11px;background:#fafbfd;border:1px solid #eef1f5;border-radius:11px;margin-bottom:9px}
   .settle-item .info{flex:1;font-size:14px}.settle-item .info .pname{font-weight:700;color:#2d3561}.settle-item .info .meta{font-size:12px;color:#8792a6}
   .settle-item input{width:110px;padding:9px;border:1px solid #e2e7ee;border-radius:10px;text-align:center;font-size:15px}
-  .modal-mask{position:fixed;inset:0;background:rgba(20,24,45,.55);z-index:200;display:none;justify-content:center;align-items:flex-start;padding:50px 20px;backdrop-filter:blur(2px)}
+  .modal-mask{position:fixed;inset:0;background:rgba(20,24,45,.55);z-index:200;display:none;justify-content:center;align-items:flex-start;padding:50px 20px;backdrop-filter:blur(2px);overflow-y:auto;-webkit-overflow-scrolling:touch}
+  @media (max-height:760px){ .modal-mask{padding:14px 20px 24px} }
+  @media (max-height:640px){ .modal-mask{padding:8px 12px 18px} .modal{padding:16px} }
   .modal-mask.show{display:flex}
   .modal{background:#fff;border-radius:18px;width:100%;max-width:460px;padding:22px;box-shadow:0 12px 40px rgba(0,0,0,.25)}
   .modal h3{font-size:17px;margin-bottom:12px;color:#2d3561;font-weight:800}
