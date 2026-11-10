@@ -115,7 +115,7 @@ const OLD_COMM={128:60,158:75,198:90,298:140,398:190,498:240,598:290};
 const PROJ_COMM={128:60,158:75,268:130,368:180,468:230,568:280};
 function commOf(price){ return PROJ_COMM[price]!==undefined ? PROJ_COMM[price] : comm50(price); }
 // 是否用新算法(50%):仅当记录带 newRule:true 标记(2026-08-30 11:00后录入)
-function isNewRule(r){ return !!(r && r.newRule===true); }
+function isNewRule(r){ if(!r) return false; if(r.newRule===true) return true; if(r.newRule===false) return false; return String(r.date||'')>='2026-08-30'; }
 // 单项目整单提成(双人每名190不变;普通项目按 newRule 分新/旧算法)
 function calcItemComm(it, r){
   var price = (typeof it==='object') ? (it.orig||it.price) : it;
