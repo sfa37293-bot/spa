@@ -201,7 +201,7 @@ function renderRooms(){
       b.innerHTML=`
         <div class="field"><label>选择技师(双人798需选2人)</label><div class="tags" id="tk${ri}">${DB.techs.map((t,i)=>`<span class="tag2" data-i="${i}" onclick="toggleTechPick(${ri},${i})">${t}</span>`).join('')}</div><div class="hint" id="th${ri}"></div></div>
         <div class="field"><label>项目价格(点选价目或手输)</label><div class="projects" id="pw${ri}"></div><div class="hint" id="ph${ri}"></div><div style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="pwi${ri}" type="number" inputmode="numeric" placeholder="手输金额" oninput="syncManual(${ri})" style="flex:1;padding:9px 12px;border:1px solid #ddd;border-radius:10px;font-size:15px"><span id="pwm${ri}" style="font-size:12px;color:#8792a6;white-space:nowrap">提成按 50% 算</span></div></div>
-        <div class="field"><label>客户来源(单选)</label><div class="projects" id="src${ri}"><div class="proj">美团</div><div class="proj">老客</div><div class="proj">散客</div></div></div>
+        <div class="field"><label>客户来源(单选)</label><div class="projects" id="src${ri}" style="grid-template-columns:repeat(4,1fr)"><div class="proj">美团</div><div class="proj">抖音</div><div class="proj">老客</div><div class="proj">散客</div></div></div>
         <div class="field"><label>点钟(指名技师+20提成)</label><div style="display:flex;align-items:center;justify-content:space-between;background:#fafafa;border:1px solid #ddd;border-radius:10px;padding:11px 14px"><span style="font-size:14px">是否点钟</span><span class="tag2" id="nm${ri}" onclick="toggleNamed(${ri})" style="padding:8px 22px">否</span></div><div class="hint" id="nh${ri}"></div></div>
         <div class="btn-row"><button class="btn p" onclick="clockIn(${ri})">🔔 上钟</button></div>`;
       const pw=b.querySelector('#pw'+ri);
@@ -370,7 +370,7 @@ function openWalk(){
   mask.innerHTML=`<div class="modal"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
     <h3>🚶 走客记录</h3>
     <div style="color:#888;font-size:13px;margin:4px 0 10px">客人未上钟直接离开,不计营业、无提成,仅记走客。带*为必填。</div>
-    <div class="field"><label><span style="color:#c62828">* </span>客户来源(必选,单选)</label><div class="projects" id="wkSrcWrap"><div class="proj">美团</div><div class="proj">老客</div><div class="proj">散客</div></div></div>
+    <div class="field"><label><span style="color:#c62828">* </span>客户来源(必选,单选)</label><div class="projects" id="wkSrcWrap" style="grid-template-columns:repeat(4,1fr)"><div class="proj">美团</div><div class="proj">抖音</div><div class="proj">老客</div><div class="proj">散客</div></div></div>
     <div class="field"><label><span style="color:#c62828">* </span>试钟技师(必选,可多选)</label><div class="tags" id="wkTechWrap">${DB.techs.map((t,i)=>`<span class="tag2" data-t="${t}" onclick="wkTechPick(this)">${t}</span>`).join('')}</div><div class="hint" id="wkTechHint"></div></div>
     <div class="field"><label><span style="color:#c62828">* </span>走客原因(必填,备注)</label><input id="wkReason" placeholder="如:嫌贵/约满/试了几位技师都不满意等"></div>
     <div class="btn-row"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">取消</button><button class="btn r" onclick="confirmWalk(this.closest('.modal-mask'))">确认走客</button></div></div>`;
