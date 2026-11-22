@@ -224,7 +224,7 @@ function renderRooms(){
       b.innerHTML=`
         <div class="field"><label>选择技师(双人798需选2人)</label><div class="tags" id="tk${ri}">${DB.techs.map((t,i)=>`<span class="tag2" data-i="${i}" onclick="toggleTechPick(${ri},${i})">${t}</span>`).join('')}</div><div class="hint" id="th${ri}"></div></div>
         <div class="field"><label>项目价格(点选价目或手输)</label><div class="projects" id="pw${ri}">${projBtns('pj',ri,'pickProj')}<div class="proj" id="pj${ri}_798" style="grid-column:1/-1;border:2px solid #e2e7ee" onclick="pickPair(${ri})">798元<span class="price">双人·每名190提成</span></div></div><div class="hint" id="ph${ri}"></div><div style="margin-top:8px;background:#f4f7ff;border:1px dashed #7c9cff;border-radius:10px;padding:8px"><div style="font-size:12px;color:#3b5bdb;font-weight:700;margin-bottom:5px">✏️ 手输金额(价目表外的价格填这里)</div><div style="display:flex;align-items:center;gap:8px"><input id="pwi${ri}" type="number" inputmode="numeric" placeholder="输入金额，如 300" oninput="syncManual(${ri})" style="flex:1;padding:9px 12px;border:1px solid #b8c6ff;border-radius:10px;font-size:15px;background:#fff"><span id="pwm${ri}" style="font-size:12px;color:#8792a6;white-space:nowrap">提成按 50% 算</span></div></div></div>
-        <div class="field"><label>客户来源(单选)</label><div class="projects" id="src${ri}"><div class="proj">美团</div><div class="proj">老客</div><div class="proj">散客</div></div></div>
+        <div class="field"><label>客户来源(单选)</label><div class="projects" id="src${ri}"><div class="proj">美团</div><div class="proj">抖音</div><div class="proj">老客</div><div class="proj">散客</div></div></div>
         <div class="field"><label>点钟(指名技师+20提成)</label><div style="display:flex;align-items:center;justify-content:space-between;background:#fafafa;border:1px solid #ddd;border-radius:10px;padding:11px 14px"><span style="font-size:14px">是否点钟</span><span class="tag2" id="nm${ri}" onclick="toggleNamed(${ri})" style="padding:8px 22px">否</span></div><div class="hint" id="nh${ri}"></div></div>
         <div class="btn-row"><button class="btn p" onclick="clockIn(${ri})">🔔 上钟</button></div>`;
       const pw=b.querySelector('#pw'+ri);
@@ -451,7 +451,7 @@ function openWalk(){
   mask.innerHTML=`<div class="modal"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
     <h3>🚶 走客记录</h3>
     <div style="color:#888;font-size:13px;margin:4px 0 10px">客人未上钟直接离开,不计营业、无提成,仅记走客。带*为必填。</div>
-    <div class="field"><label><span style="color:#c62828">* </span>客户来源(必选,单选)</label><div class="projects" id="wkSrcWrap"><div class="proj">美团</div><div class="proj">老客</div><div class="proj">散客</div></div></div>
+    <div class="field"><label><span style="color:#c62828">* </span>客户来源(必选,单选)</label><div class="projects" id="wkSrcWrap"><div class="proj">美团</div><div class="proj">抖音</div><div class="proj">老客</div><div class="proj">散客</div></div></div>
     <div class="field"><label><span style="color:#c62828">* </span>试钟技师(必选,可多选)</label><div class="tags" id="wkTechWrap">${DB.techs.map((t,i)=>`<span class="tag2" data-t="${t}" onclick="wkTechPick(this)">${t}</span>`).join('')}</div><div class="hint" id="wkTechHint"></div></div>
     <div class="field"><label><span style="color:#c62828">* </span>走客原因(必填,备注)</label><input id="wkReason" placeholder="如:嫌贵/约满/试了几位技师都不满意等"></div>
     <div class="btn-row"><button class="btn gr" onclick="this.closest('.modal-mask').remove()">取消</button><button class="btn r" onclick="confirmWalk(this.closest('.modal-mask'))">确认走客</button></div></div>`;
@@ -612,7 +612,7 @@ function editRecordFull(idx){
   pays.forEach(p=>{ if(p.indexOf('现金')>=0) cash=parseFloat(p.replace(/[^0-9.]/g,''))||0; if(p.indexOf('扫码')>=0) scan=parseFloat(p.replace(/[^0-9.]/g,''))||0; if(p.indexOf('美团')>=0) mt=parseFloat(p.replace(/[^0-9.]/g,''))||0; });
   if(cash+scan+mt===0){ cash=r.total||0; }
   const total=(r.total||0);
-  const srcOpts=['美团','老客','散客'].map(s=>`<option ${s===(r.source||'')?'selected':''}>${s}</option>`).join('');
+  const srcOpts=['美团','抖音','老客','散客'].map(s=>`<option ${s===(r.source||'')?'selected':''}>${s}</option>`).join('');
   mask.innerHTML=`<div class="modal"><button class="close" onclick="this.closest('.modal-mask').remove()">×</button>
     <h3>✎ 改整单</h3>
     <div class="field"><label>技师(${pair?'双人选2人':'选1人'},也可在各项目里单独改)</label><div class="tags" id="etTags">${tags}</div><div class="hint" id="etHint"></div></div>
